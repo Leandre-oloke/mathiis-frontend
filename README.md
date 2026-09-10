@@ -44,12 +44,13 @@ cp .env.local.example .env.local
 
 ```dotenv
 # .env.local
-NEXT_PUBLIC_API_URL=<URL fournie par l'équipe>
+NEXT_PUBLIC_API_URL=https://api.mathiis.com/api/v1
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=          # optionnel, laisse vide si tu ne testes pas "Se connecter avec Google"
 ```
 
-> L'URL de l'API et les identifiants de test (email/mot de passe) te sont
-> communiqués séparément, en privé — ne les commite jamais dans ce dépôt.
+> Connecte-toi avec ton compte habituel sur la plateforme — le frontend
+> local parle directement au vrai backend en ligne, aucun identifiant
+> supplémentaire n'est nécessaire. Ne commite jamais `.env.local`.
 
 ## Lancer en développement
 
@@ -74,16 +75,16 @@ Ouvre [http://localhost:3000](http://localhost:3000).
 src/
 ├── app/
 │   ├── auth/          # Connexion, inscription, mot de passe oublié
-│   ├── dashboard/      # Espace utilisateur (générer, mes épreuves, documents...)
-│   │   └── generate/   # Formulaire de génération d'épreuve
-│   └── admin/          # Panneau d'administration
-├── components/         # Composants réutilisables (layout, formulaires, admin)
+│   └── dashboard/      # Espace utilisateur (générer, mes épreuves, documents...)
+│       └── generate/   # Formulaire de génération d'épreuve
+├── components/         # Composants réutilisables (layout, formulaires)
 ├── store/               # État global Zustand (auth, quotas, épreuves)
 └── lib/                 # Client API, utilitaires, streaming SSE
 ```
 
 ## Ce que ce dépôt n'a pas (par conception)
 
+- Le panneau d'administration (`/admin`) — développement réservé, géré séparément
 - Le code du backend (API, base de données, authentification serveur)
 - Le moteur de génération IA (RAG, prompts, bases vectorielles)
 - Les clés API, secrets, ou identifiants de production
