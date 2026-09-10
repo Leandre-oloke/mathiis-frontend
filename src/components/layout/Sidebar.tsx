@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Sparkles, FileText, Upload, LogOut, User, Shield, Settings,
+  LayoutDashboard, Sparkles, FileText, Upload, LogOut, User, Shield,
   CreditCard, X, HelpCircle, type LucideIcon,
 } from "lucide-react";
 
@@ -26,7 +26,8 @@ const navItemsAdmin: NavItem[] = [
   { href: "/dashboard/exams", icon: FileText, label: "Mes épreuves", external: false },
   { href: "/dashboard/documents", icon: Upload, label: "Mes corrigés", external: false },
   { href: "/dashboard/help", icon: HelpCircle, label: "Aide", external: false },
-  { href: "/admin", icon: Settings, label: "Administration", external: false },
+  // Lien "Administration" retiré : ce dépôt (mathiis-frontend, partagé avec
+  // un collaborateur externe) ne contient plus les pages /admin.
 ];
 
 interface SidebarProps {
