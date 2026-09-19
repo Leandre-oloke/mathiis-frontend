@@ -684,22 +684,33 @@ export default function GeneratePage() {
   // ── Formulaire ────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="mx-auto max-w-6xl space-y-7">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Générer une épreuve</h1>
-        <p className="text-slate-500 mt-1">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-indigo-500">Création intelligente</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#071a3d] sm:text-4xl">Générer une épreuve</h1>
+        <p className="mt-1 text-lg text-slate-500">
           Configurez les paramètres : la génération s&apos;affiche en direct.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-6">
+      <div className="grid grid-cols-3 items-center gap-3 px-1 text-xs font-semibold text-slate-400 sm:text-sm">
+        {[["1", "Paramètres"], ["2", "Structure"], ["3", "Aperçu"]].map(([number, label], index) => (
+          <div key={number} className="flex items-center gap-3">
+            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", index === 0 ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200" : "bg-white text-slate-400 shadow-sm")}>{number}</span>
+            <span className={index === 0 ? "text-indigo-600" : ""}>{label}</span>
+            {index < 2 && <span className="hidden h-px flex-1 bg-slate-200 sm:block" />}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-6 rounded-3xl border border-white bg-white p-6 shadow-xl shadow-slate-200/50 sm:p-8">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Zap className="w-4 h-4 text-indigo-600" />
+          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100">
+            <Zap className="h-6 w-6 text-indigo-600" />
           </div>
           <div>
-            <h2 className="font-semibold text-slate-900">Mode rapide</h2>
-            <p className="text-xs text-slate-400">Génération en direct · résultat visible en temps réel</p>
+            <h2 className="text-lg font-bold text-[#071a3d]">Mode rapide</h2>
+            <p className="text-sm text-slate-400">Génération en direct · résultat visible en temps réel</p>
           </div>
           <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">
             <Layers className="w-3 h-3" />Standard
@@ -711,7 +722,7 @@ export default function GeneratePage() {
         {/* Matière */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Matière</label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {SUBJECTS.map(({ key, desc, Icon, selected, iconWrap }) => {
               const isSelected = subject === key;
               return (
@@ -719,12 +730,12 @@ export default function GeneratePage() {
                   key={key}
                   onClick={() => handleSubjectChange(key)}
                   className={cn(
-                    "min-w-0 text-left rounded-xl border p-2 sm:p-3 transition-all",
+                    "min-w-0 rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
                     isSelected ? selected : "border-slate-200 hover:border-slate-300"
                   )}
                 >
-                  <div className={cn("w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center mb-1.5 sm:mb-2", iconWrap)}>
-                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <div className={cn("mb-3 flex h-11 w-11 items-center justify-center rounded-xl", iconWrap)}>
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight break-words">{key}</div>
                   <div className="hidden sm:block text-xs text-slate-400 mt-0.5 line-clamp-2">{desc}</div>
@@ -741,7 +752,7 @@ export default function GeneratePage() {
             <select
               value={classe}
               onChange={(e) => handleClasseChange(e.target.value)}
-              className="w-full appearance-none px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white pr-10"
+              className="h-13 w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {CLASSES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -923,7 +934,7 @@ export default function GeneratePage() {
             }
             setShowEngineModal(true);
           }}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
+          className="ml-auto flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-7 py-3.5 font-bold text-white shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:shadow-xl sm:w-auto"
         >
           <Sparkles className="w-4 h-4" />
           Générer l&apos;épreuve
@@ -968,7 +979,7 @@ export default function GeneratePage() {
                   <div className="text-xs text-slate-400 mt-1">{m.detail}</div>
                   {m.avert && (
                     <div className="mt-2 text-xs font-medium text-amber-600">
-                      ⚠ Génération plus lente — patiente jusqu'à la fin.
+                      ⚠ Génération plus lente — patiente jusqu&apos;à la fin.
                     </div>
                   )}
                 </button>

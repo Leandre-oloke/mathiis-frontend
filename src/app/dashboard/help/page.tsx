@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
-import { ChevronDown, Loader2, Send, HelpCircle } from "lucide-react";
+import { ChevronDown, Loader2, Send, HelpCircle, Search, FileText, FileCheck2, UserRound, ArrowRight, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FaqItem {
@@ -145,6 +145,7 @@ function FaqAccordionItem({ item }: { item: FaqItem }) {
     <div className="border-b border-slate-100 last:border-b-0">
       <button
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         className="w-full flex items-center justify-between gap-4 py-3.5 text-left"
       >
         <span className="text-sm font-medium text-slate-800">{item.question}</span>
@@ -161,7 +162,17 @@ function FaqAccordionItem({ item }: { item: FaqItem }) {
 
 export default function HelpPage() {
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
+
+  const filteredFaq = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("fr");
+    if (!query) return FAQ;
+    return FAQ.map((category) => ({
+      ...category,
+      items: category.items.filter((item) => `${item.question} ${item.answer}`.toLocaleLowerCase("fr").includes(query)),
+    })).filter((category) => category.items.length > 0);
+  }, [search]);
 
   const handleSend = async () => {
     if (message.trim().length < 5) {
@@ -181,21 +192,39 @@ export default function HelpPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <HelpCircle className="w-6 h-6 text-indigo-600" />
-          Aide
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-indigo-500">Bon retour</p>
+        <h1 className="flex items-center gap-3 text-3xl font-extrabold tracking-tight text-[#071a3d] sm:text-4xl">
+          Centre d&apos;aide <HelpCircle className="h-8 w-8 text-indigo-600" />
         </h1>
-        <p className="text-slate-500 mt-1">
-          Questions fréquentes et moyen de nous contacter directement.
+        <p className="mt-1 text-lg text-slate-500">
+          Trouvez rapidement une réponse ou contactez notre équipe.
         </p>
       </div>
 
-      <div className="space-y-6">
-        {FAQ.map((category) => (
-          <div key={category.title} className="bg-white rounded-2xl border border-slate-100 p-6">
-            <h2 className="font-semibold text-slate-900 mb-2">{category.title}</h2>
+      <div className="relative">
+        <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-indigo-400" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher dans l’aide…" className="h-16 w-full rounded-2xl border border-white bg-white pl-14 pr-5 text-sm shadow-xl shadow-slate-200/40 outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {([
+          [FileText, "Génération d’épreuves", "Questions sur la création d’épreuves avec l’IA", "text-indigo-600", "bg-indigo-50"],
+          [FileCheck2, "Import & correction", "Importer vos épreuves et comprendre les corrigés", "text-emerald-600", "bg-emerald-50"],
+          [UserRound, "Compte & abonnement", "Gérer votre compte, abonnement et facturation", "text-orange-600", "bg-orange-50"],
+        ] as const).map(([Icon, title, copy, color, bg]) => (
+          <div key={String(title)} className="flex items-center gap-4 rounded-3xl border border-white bg-white p-5 shadow-lg shadow-slate-200/40">
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${bg}`}><Icon className={`h-6 w-6 ${color}`} /></div>
+            <div className="min-w-0 flex-1"><h2 className="font-bold text-[#071a3d]">{String(title)}</h2><p className="mt-1 text-xs leading-relaxed text-slate-500">{String(copy)}</p></div><ArrowRight className="h-5 w-5 text-indigo-500" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {filteredFaq.map((category) => (
+          <div key={category.title} className="rounded-3xl border border-white bg-white p-6 shadow-xl shadow-slate-200/40">
+            <h2 className="mb-2 text-lg font-extrabold text-[#071a3d]">{category.title}</h2>
             <div>
               {category.items.map((item) => (
                 <FaqAccordionItem key={item.question} item={item} />
@@ -203,11 +232,13 @@ export default function HelpPage() {
             </div>
           </div>
         ))}
+        {filteredFaq.length === 0 && <div className="col-span-full rounded-3xl bg-white p-10 text-center text-slate-500 shadow-lg">Aucune réponse ne correspond à cette recherche.</div>}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-blue-50 p-7 shadow-xl shadow-slate-200/40 sm:p-8">
+        <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-indigo-200/40 blur-2xl" />
         <div>
-          <h2 className="font-semibold text-slate-900">Nous contacter</h2>
+          <h2 className="relative flex items-center gap-3 text-xl font-extrabold text-[#071a3d]"><MessageCircle className="h-6 w-6 text-indigo-600" />Vous ne trouvez pas votre réponse ?</h2>
           <p className="text-sm text-slate-500 mt-1">
             Une question, un bug à signaler, une suggestion ? Écrivez-nous directement.
           </p>
@@ -217,12 +248,12 @@ export default function HelpPage() {
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
           placeholder="Votre message..."
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="relative mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <button
           onClick={handleSend}
           disabled={sending}
-          className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60"
+          className="relative mt-4 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 hover:shadow-xl disabled:opacity-60"
         >
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           Envoyer

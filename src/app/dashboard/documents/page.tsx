@@ -55,7 +55,12 @@ export default function DocumentsPage() {
     }
   };
 
-  useEffect(() => { fetchDocs(); }, []);
+  useEffect(() => {
+    api.get<Document[]>("/documents")
+      .then(({ data }) => setDocuments(data))
+      .catch(() => toast.error("Erreur lors du chargement"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const uploadFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) { toast.error("Fichier trop volumineux (max 5 Mo)"); return; }
@@ -227,10 +232,11 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Mes corrigés</h1>
-        <p className="text-slate-500 mt-1 text-sm">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-indigo-500">Retour à l&apos;accueil</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#071a3d] sm:text-4xl">Mes corrigés</h1>
+        <p className="mt-1 text-lg text-slate-500">
           Importez une épreuve : le modèle IA génère automatiquement le corrigé en PDF.
         </p>
       </div>
@@ -241,10 +247,10 @@ export default function DocumentsPage() {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => !uploading && fileRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+        className={`relative overflow-hidden rounded-3xl border-2 border-dashed p-12 text-center shadow-xl shadow-slate-200/40 transition-all sm:p-16 ${
           dragOver
             ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/40"
+            : "border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/30"
         }`}
       >
         <input
@@ -255,8 +261,8 @@ export default function DocumentsPage() {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }}
         />
         <div className="flex flex-col items-center gap-3">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${
-            dragOver ? "bg-indigo-100" : "bg-slate-100"
+          <div className={`flex h-20 w-20 items-center justify-center rounded-3xl transition-colors ${
+            dragOver ? "bg-indigo-100" : "bg-gradient-to-br from-indigo-50 to-blue-100"
           }`}>
             {uploading
               ? <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -264,10 +270,11 @@ export default function DocumentsPage() {
             }
           </div>
           <div>
-            <p className="font-semibold text-slate-700">
+            <p className="text-lg font-bold text-[#071a3d]">
               {uploading ? "Import en cours…" : "Glissez-déposez ou cliquez pour importer"}
             </p>
             <p className="text-sm text-slate-400 mt-1">PDF, DOCX, TXT (max 5 Mo)</p>
+            {!uploading && <span className="mt-5 inline-flex rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200">Choisir un fichier</span>}
           </div>
         </div>
       </div>
@@ -280,7 +287,7 @@ export default function DocumentsPage() {
           ))}
         </div>
       ) : documents.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
+        <div className="rounded-3xl border border-white bg-white py-16 text-center shadow-xl shadow-slate-200/40">
           <File className="w-12 h-12 text-slate-200 mx-auto mb-3" />
           <p className="text-slate-500 font-medium">Aucun document importé</p>
           <p className="text-slate-400 text-sm mt-1">
@@ -292,7 +299,7 @@ export default function DocumentsPage() {
           {documents.map((doc) => (
             <div
               key={doc.id}
-              className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4 hover:border-slate-200 transition-colors"
+              className="flex items-center gap-4 rounded-3xl border border-white bg-white p-5 shadow-lg shadow-slate-200/40 transition hover:-translate-y-0.5 hover:border-indigo-100"
             >
               <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
                 {FILE_ICONS[doc.file_type] || "📄"}
@@ -331,7 +338,8 @@ export default function DocumentsPage() {
 
               <button
                 onClick={() => handleDelete(doc.id, doc.original_filename)}
-                className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                aria-label={`Supprimer ${doc.original_filename}`}
+                className="rounded-xl p-2 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -343,7 +351,7 @@ export default function DocumentsPage() {
       {/* Modal correction */}
       {correctModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="font-bold text-slate-900 text-lg">Corriger l&apos;épreuve</h2>

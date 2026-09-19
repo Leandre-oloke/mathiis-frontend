@@ -81,15 +81,16 @@ export default function ExamsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-7">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mes épreuves</h1>
-          <p className="text-slate-500 mt-1">{total} épreuve{total > 1 ? "s" : ""} au total</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-indigo-500">Mes épreuves</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#071a3d] sm:text-4xl">Mes épreuves</h1>
+          <p className="mt-1 text-lg text-slate-500">{total} épreuve{total > 1 ? "s" : ""} au total</p>
         </div>
         <Link
           href="/dashboard/generate"
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors text-sm"
+          className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-xl"
         >
           <Plus className="w-4 h-4" />
           Nouvelle épreuve
@@ -97,20 +98,20 @@ export default function ExamsPage() {
       </div>
 
       {/* Filtres */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-56">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher une épreuve..."
-            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            className="h-14 w-full rounded-2xl border border-white bg-white pl-11 pr-4 text-sm shadow-lg shadow-slate-200/40 outline-none transition focus:ring-2 focus:ring-indigo-500"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+          className="h-14 min-w-56 rounded-2xl border border-white bg-white px-5 text-sm text-slate-600 shadow-lg shadow-slate-200/40 outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="">Tous les statuts</option>
           <option value="completed">Terminé</option>
@@ -128,7 +129,7 @@ export default function ExamsPage() {
           ))}
         </div>
       ) : exams.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
+        <div className="rounded-3xl border border-white bg-white py-20 text-center shadow-xl shadow-slate-200/40">
           <Sparkles className="w-12 h-12 text-slate-200 mx-auto mb-3" />
           <p className="text-slate-600 font-medium">Aucune épreuve trouvée</p>
           <p className="text-slate-400 text-sm mt-1">Essayez de modifier votre recherche ou créez une nouvelle épreuve</p>
@@ -141,17 +142,17 @@ export default function ExamsPage() {
             return (
               <div
                 key={exam.id}
-                className="bg-white rounded-2xl border border-slate-100 p-5 hover:border-indigo-100 hover:shadow-sm transition-all"
+                className="rounded-3xl border border-white bg-white p-6 shadow-lg shadow-slate-200/40 transition-all hover:-translate-y-0.5 hover:border-indigo-100 hover:shadow-xl"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <FileText className="w-5 h-5 text-indigo-500" />
+                  <div className="mt-0.5 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100">
+                    <FileText className="h-6 w-6 text-indigo-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-900">{exam.title}</h3>
+                          <h3 className="text-lg font-bold text-[#071a3d]">{exam.title}</h3>
                           {exam.engine === "premium" ? (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                               <Zap className="w-3 h-3" />Premium
@@ -193,7 +194,7 @@ export default function ExamsPage() {
                         <button
                           onClick={() => handleDownload(exam.id, false)}
                           disabled={downloading === exam.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors disabled:opacity-60"
+                            className="flex items-center gap-1.5 rounded-xl bg-indigo-50 px-4 py-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-60"
                         >
                           {downloading === exam.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
                           PDF
@@ -234,7 +235,8 @@ export default function ExamsPage() {
                   <button
                     onClick={() => handleDelete(exam.id)}
                     disabled={deleting === exam.id}
-                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                    aria-label={`Supprimer ${exam.title}`}
+                    className="flex-shrink-0 rounded-xl p-2 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
                   >
                     {deleting === exam.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />

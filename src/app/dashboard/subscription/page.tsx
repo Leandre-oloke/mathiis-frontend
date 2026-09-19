@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuotaStore } from "@/store/quota";
 import { api } from "@/lib/api";
 import {
-  CheckCircle, AlertCircle, Clock, BarChart2,
+  CheckCircle, AlertCircle, Clock, BarChart2, Crown, Sparkles, FileDown, Headphones,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -57,14 +57,36 @@ function SubscriptionContent() {
   const pct = (used: number, limit: number) => Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="space-y-7">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Abonnement & Quota</h1>
-        <p className="text-slate-500 mt-1">Gérez votre abonnement et consultez vos usages.</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-indigo-500">Abonnement</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#071a3d] sm:text-4xl">Abonnement & Quota <span aria-hidden>👑</span></h1>
+        <p className="mt-1 text-lg text-slate-500">Gérez votre abonnement et consultez vos usages.</p>
       </div>
 
+      <section className="relative overflow-hidden rounded-3xl border border-white bg-white p-7 shadow-xl shadow-slate-200/50 sm:p-9">
+        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-indigo-100/70 blur-2xl" />
+        <div className="absolute bottom-[-7rem] right-28 h-56 w-56 rounded-full bg-cyan-100/60 blur-2xl" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-5">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-100 to-violet-100">
+              <Crown className="h-10 w-10 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-500">Votre abonnement</p>
+              <h2 className="mt-2 text-2xl font-extrabold text-[#071a3d] sm:text-3xl">{is_unlimited ? "Accès illimité (Admin)" : "Formule Mathiis"}</h2>
+              <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" />Actif</span>
+              <p className="mt-3 max-w-2xl text-sm text-slate-500">Profitez de toutes les fonctionnalités de Mathiis pour créer, corriger et exporter vos évaluations.</p>
+            </div>
+          </div>
+          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 px-7 py-5 text-center text-white shadow-xl shadow-indigo-200">
+            <div className="text-4xl font-black">∞</div><div className="text-xs font-bold uppercase tracking-wider text-indigo-100">possibilités</div>
+          </div>
+        </div>
+      </section>
+
       {/* Quota actuel */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="rounded-3xl border border-white bg-white p-7 shadow-xl shadow-slate-200/50">
         <div className="flex items-center gap-2 mb-5">
           <BarChart2 className="w-5 h-5 text-indigo-600" />
           <h2 className="text-lg font-semibold text-slate-900">Votre quota actuel</h2>
@@ -83,7 +105,7 @@ function SubscriptionContent() {
                 {is_unlimited ? "∞" : `${exams_used} / ${exams_limit}`}
               </span>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
               <div
                 className="h-full rounded-full bg-indigo-500 transition-all"
                 style={{ width: is_unlimited ? "10%" : `${pct(exams_used, exams_limit)}%` }}
@@ -103,7 +125,7 @@ function SubscriptionContent() {
                 {is_unlimited ? "∞" : `${corrections_used} / ${corrections_limit}`}
               </span>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
                 style={{ width: is_unlimited ? "10%" : `${pct(corrections_used, corrections_limit)}%` }}
@@ -117,6 +139,22 @@ function SubscriptionContent() {
           </div>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-white bg-white p-6 shadow-xl shadow-slate-200/50">
+        <div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-extrabold text-[#071a3d]">Vos avantages inclus</h2><span className="text-sm font-semibold text-indigo-600">Tout est inclus</span></div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {([
+            [Sparkles, "Génération intelligente", "Créez des épreuves adaptées à toutes vos classes.", "text-indigo-600", "bg-indigo-50"],
+            [FileDown, "Exports PDF & Word", "Téléchargez vos épreuves et corrigés à tout moment.", "text-emerald-600", "bg-emerald-50"],
+            [Headphones, "Support prioritaire", "Une équipe à votre écoute pour vous accompagner.", "text-orange-600", "bg-orange-50"],
+          ] as const).map(([Icon, title, copy, color, bg]) => (
+            <div key={String(title)} className="rounded-2xl border border-slate-100 p-5">
+              <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${bg}`}><Icon className={`h-6 w-6 ${color}`} /></div>
+              <h3 className="font-bold text-[#071a3d]">{String(title)}</h3><p className="mt-1 text-sm leading-relaxed text-slate-500">{String(copy)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
 
       {/* Historique */}
