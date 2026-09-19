@@ -3,9 +3,10 @@ import { cn } from "@/lib/utils";
 interface MathiisBrandProps {
   compact?: boolean;
   className?: string;
+  theme?: "dark" | "light";
 }
 
-export function MathiisBrand({ compact = false, className }: MathiisBrandProps) {
+export function MathiisBrand({ compact = false, className, theme = "dark" }: MathiisBrandProps) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <svg
@@ -31,8 +32,8 @@ export function MathiisBrand({ compact = false, className }: MathiisBrandProps) 
       </svg>
       {!compact && (
         <div className="min-w-0">
-          <div className="text-[21px] font-extrabold leading-none tracking-[-0.03em] text-white">Mathiis</div>
-          <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">Évaluations intelligentes</div>
+          <div className={cn("text-[21px] font-extrabold leading-none tracking-[-0.03em]", theme === "dark" ? "text-white" : "text-[#071a3d]")}>Mathiis</div>
+          <div className={cn("mt-1 text-[10px] font-medium uppercase tracking-[0.18em]", theme === "dark" ? "text-slate-400" : "text-slate-500")}>Évaluations intelligentes</div>
         </div>
       )}
     </div>

@@ -22,6 +22,7 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   hasHydrated: boolean;
+  isDevPreview: boolean;
   setHasHydrated: (value: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
@@ -29,6 +30,7 @@ interface AuthState {
   resendVerification: (email: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
+  enterDevPreview: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -39,6 +41,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       hasHydrated: false,
+      isDevPreview: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
 
       login: async (email, password) => {
@@ -88,13 +91,34 @@ export const useAuthStore = create<AuthState>()(
           set({ user: null, isAuthenticated: false });
         }
       },
+
+      enterDevPreview: () => {
+        if (process.env.NODE_ENV !== "development") return;
+        set({
+          user: {
+            id: "local-preview",
+            email: "preview@mathiis.local",
+            username: "esther",
+            full_name: "Esther",
+            avatar_url: null,
+            is_verified: true,
+            is_admin: true,
+            is_superuser: false,
+            created_at: new Date().toISOString(),
+          },
+          accessToken: null,
+          refreshToken: null,
+          isAuthenticated: true,
+          isDevPreview: true,
+        });
+      },
     }),
     {
       name: "auth-store",
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
+        isAuthenticated: state.isDevPreview ? false : state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
