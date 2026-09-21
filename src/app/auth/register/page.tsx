@@ -32,6 +32,43 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+type ApiValidationIssue = {
+  msg?: string;
+};
+
+type RegistrationApiError = {
+  code?: string;
+  response?: {
+    data?: {
+      detail?: string | { message?: string } | ApiValidationIssue[];
+      message?: string;
+    };
+  };
+};
+
+function getRegistrationErrorMessage(err: unknown): string {
+  const apiError = err as RegistrationApiError;
+
+  if (!apiError.response || apiError.code === "ERR_NETWORK") {
+    return "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.";
+  }
+
+  const { detail, message } = apiError.response.data ?? {};
+
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const validationMessages = detail
+      .map((issue) => issue.msg)
+      .filter((issue): issue is string => Boolean(issue));
+
+    if (validationMessages.length > 0) return validationMessages.join(" ");
+  }
+  if (detail && typeof detail === "object" && detail.message) return detail.message;
+  if (message) return message;
+
+  return "La création du compte a échoué. Vérifiez les informations saisies puis réessayez.";
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const register_ = useAuthStore((s) => s.register);
@@ -55,10 +92,7 @@ export default function RegisterPage() {
       await register_(data);
       router.push(`/auth/check-email?email=${encodeURIComponent(data.email)}`);
     } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Erreur lors de la création du compte";
-      toast.error(message);
+      toast.error(getRegistrationErrorMessage(err));
     }
   };
 
