@@ -23,7 +23,6 @@ export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const resendVerification = useAuthStore((s) => s.resendVerification);
-  const enterDevPreview = useAuthStore((s) => s.enterDevPreview);
   const [showPassword, setShowPassword] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
@@ -61,12 +60,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleLocalPreview = () => {
-    enterDevPreview();
-    toast.success("Mode aperçu local activé");
-    router.push("/dashboard");
-  };
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f5f8ff] lg:grid lg:grid-cols-[1.08fr_0.92fr]">
       <section className="relative hidden min-h-screen overflow-hidden bg-[#071a3d] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
@@ -98,8 +91,7 @@ export default function LoginPage() {
           <Link href="/" className="mb-8 inline-flex lg:hidden"><MathiisBrand theme="light" /></Link>
 
           <div className="rounded-[2rem] border border-white bg-white/90 p-6 shadow-2xl shadow-slate-300/45 backdrop-blur-xl sm:p-9">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-500">Espace enseignant</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight text-[#071a3d] sm:text-4xl">Heureux de vous revoir</h2>
+          <h2 className="text-3xl font-black tracking-tight text-[#071a3d] sm:text-4xl">Heureux de vous revoir</h2>
           <p className="mb-8 mt-2 text-sm leading-relaxed text-slate-500">Connectez-vous pour retrouver vos épreuves et continuer à faire progresser vos élèves.</p>
 
           <div className="mb-6">
@@ -182,12 +174,6 @@ export default function LoginPage() {
               className="mt-4 w-full text-center text-sm text-indigo-600 font-medium hover:underline"
             >
               Renvoyer l&apos;email de vérification
-            </button>
-          )}
-
-          {process.env.NODE_ENV === "development" && (
-            <button type="button" onClick={handleLocalPreview} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-indigo-300 bg-indigo-50/70 text-sm font-bold text-indigo-700 transition hover:border-indigo-500 hover:bg-indigo-100">
-              <Sparkles className="h-4 w-4" /> Aperçu local sans connexion
             </button>
           )}
 
