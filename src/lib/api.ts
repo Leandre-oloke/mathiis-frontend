@@ -1,6 +1,10 @@
 import axios, { AxiosInstance } from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const REMOTE_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL =
+  typeof window !== "undefined" && process.env.NODE_ENV === "development"
+    ? "/api/v1"
+    : REMOTE_API_URL;
 
 export const api: AxiosInstance = axios.create({
   baseURL: API_URL,

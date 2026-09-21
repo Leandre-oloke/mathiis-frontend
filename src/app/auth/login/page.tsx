@@ -39,11 +39,16 @@ export default function LoginPage() {
       toast.success("Connexion réussie !");
       router.push("/dashboard");
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string | { code?: string; message?: string } } } })
-        ?.response?.data?.detail;
+      const apiError = err as {
+        code?: string;
+        response?: { data?: { detail?: string | { code?: string; message?: string } } };
+      };
+      const detail = apiError.response?.data?.detail;
       if (typeof detail === "object" && detail?.code === "EMAIL_NOT_VERIFIED") {
         setUnverifiedEmail(data.email);
         toast.error(detail.message || "Email non vérifié");
+      } else if (!apiError.response || apiError.code === "ERR_NETWORK") {
+        toast.error("Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.");
       } else {
         toast.error((typeof detail === "string" && detail) || "Identifiants incorrects");
       }
