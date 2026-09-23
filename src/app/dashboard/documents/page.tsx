@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useQuotaStore } from "@/store/quota";
-import { api } from "@/lib/api";
+import { api, getApiBaseUrl } from "@/lib/api";
 import { formatDate, formatFileSize } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
@@ -138,7 +138,7 @@ export default function DocumentsPage() {
     // épreuve complexe peut prendre plusieurs minutes, ce qu'aucun proxy/
     // pare-feu intermédiaire ne garantit de laisser passer sans réponse
     // intermédiaire sur une connexion HTTP classique.
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    const apiUrl = getApiBaseUrl();
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     const docId = correctModal.doc.id;
     const originalName = correctModal.doc.original_filename;

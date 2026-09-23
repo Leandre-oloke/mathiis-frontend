@@ -20,6 +20,27 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async headers() {
+    if (process.env.NODE_ENV !== "development") {
+      return [];
+    }
+
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer-when-downgrade",
+          },
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

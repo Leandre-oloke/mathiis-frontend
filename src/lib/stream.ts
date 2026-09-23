@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+import { getApiBaseUrl } from "@/lib/api";
 
 function getToken(): string {
   if (typeof window === "undefined") return "";
@@ -11,7 +11,7 @@ async function streamPost(
   onChunk: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
+  const res = await fetch(`${getApiBaseUrl()}${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -74,7 +74,7 @@ export async function finalizePremiumExam(data: {
   markdown: string;
   duration_minutes?: number | null;
 }): Promise<{ id: string }> {
-  const res = await fetch(`${BASE_URL}/premium/finalize`, {
+  const res = await fetch(`${getApiBaseUrl()}/premium/finalize`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

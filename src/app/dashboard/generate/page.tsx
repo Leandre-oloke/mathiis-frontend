@@ -11,6 +11,7 @@ import {
   Calculator, FlaskConical, Leaf, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApiBaseUrl } from "@/lib/api";
 import toast from "react-hot-toast";
 
 // ── Données ────────────────────────────────────────────────────────────────────
@@ -436,7 +437,7 @@ export default function GeneratePage() {
     setCompletedSteps([]);
     setActiveSteps(new Set());
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    const apiUrl = getApiBaseUrl();
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
     try {
