@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
+import { ArrowRight, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Meter, PageHead } from "@/components/espace/parts";
+import { PLANS } from "@/components/PaywallModal";
 import { useQuotaStore } from "@/store/quota";
 import { api } from "@/lib/api";
-import {
-  CheckCircle, AlertCircle, Clock, BarChart2,
-} from "lucide-react";
-import toast from "react-hot-toast";
-import { PageHeader } from "@/components/ui/kit";
+import { formatDate } from "@/lib/utils";
 
 interface SubscriptionItem {
   id: string;
@@ -21,180 +23,89 @@ interface SubscriptionItem {
   completed_at: string | null;
 }
 
-const statusConfig: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
-  completed: { label: "Payé", color: "bg-foreground text-background", Icon: CheckCircle },
-  pending:   { label: "En attente", color: "border border-dashed border-foreground", Icon: Clock },
-  failed:    { label: "Échoué", color: "text-red-700 bg-red-50 border border-red-600", Icon: AlertCircle },
-  declined:  { label: "Refusé", color: "text-red-700 bg-red-50 border border-red-600", Icon: AlertCircle },
+const PAYMENT_STATUS: Record<string, { label: string; className: string }> = {
+  completed: { label: "Payé", className: "complete" },
+  pending: { label: "En attente", className: "running" },
+  failed: { label: "Échoué", className: "failed" },
+  declined: { label: "Refusé", className: "failed" },
 };
+
+function Usage({ label, used, limit, unlimited }: { label: string; used: number; limit: number; unlimited: boolean }) {
+  if (unlimited) return <div className="esp-meter"><div className="esp-meter-top"><span>{label}</span><strong>Illimité</strong></div></div>;
+  return <Meter label={label} value={Math.min(used, limit)} max={Math.max(1, limit)} compact={limit > 30} />;
+}
 
 function SubscriptionContent() {
   const searchParams = useSearchParams();
-  const {
-    fetchQuota,
-    exams_used, exams_limit, exams_remaining,
-    corrections_used, corrections_limit, corrections_remaining,
-    is_unlimited,
-  } = useQuotaStore();
+  const { fetchQuota, openPaywall, exams_used, exams_limit, corrections_used, corrections_limit, is_unlimited } = useQuotaStore();
   const [history, setHistory] = useState<SubscriptionItem[]>([]);
 
   useEffect(() => {
-    fetchQuota();
-    api.get<SubscriptionItem[]>("/subscriptions/history").then((r) => setHistory(r.data));
+    void fetchQuota();
+    api.get<SubscriptionItem[]>("/subscriptions/history").then((r) => setHistory(r.data)).catch(() => {});
   }, [fetchQuota]);
 
-  // Afficher le résultat du paiement si on revient du callback
+  // Back from the payment callback: show the outcome.
   useEffect(() => {
     const success = searchParams.get("success");
     const error = searchParams.get("error");
     if (success === "1") {
       toast.success("Paiement confirmé ! Votre quota a été mis à jour.");
-      fetchQuota();
+      void fetchQuota();
     } else if (error) {
       toast.error(error === "declined" ? "Paiement refusé." : `Erreur de paiement : ${error}`);
     }
   }, [searchParams, fetchQuota]);
 
-  const pct = (used: number, limit: number) => Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
-
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <PageHeader eyebrow="Compte" title="Abonnement & quota" subtitle="Gérez votre abonnement et consultez vos usages." />
-
-      {/* Quota actuel */}
-      <div className="card-ink p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <BarChart2 className="w-5 h-5" />
-          <h2 className="font-display text-lg font-bold">Votre quota actuel</h2>
-          {is_unlimited && (
-            <span className="ml-auto text-xs font-semibold px-2.5 py-1 bg-foreground text-background rounded-full">
-              Accès illimité (Admin)
-            </span>
-          )}
-        </div>
-        {/* Quotas séparés : épreuves et corrigés */}
-        <div className="space-y-6">
-          <div>
-            <div className="flex justify-between text-sm mb-2">
-              <span className="font-medium text-slate-700">Épreuves générées</span>
-              <span className="text-slate-500">
-                {is_unlimited ? "∞" : `${exams_used} / ${exams_limit}`}
-              </span>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full border-[1.5px] border-foreground bg-background">
-              <div
-                className="h-full bg-foreground transition-all"
-                style={{ width: is_unlimited ? "10%" : `${pct(exams_used, exams_limit)}%` }}
-              />
-            </div>
-            {!is_unlimited && (
-              <p className="text-xs text-slate-400 mt-1">
-                {exams_remaining} épreuve{exams_remaining > 1 ? "s" : ""} restante{exams_remaining > 1 ? "s" : ""}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <div className="flex justify-between text-sm mb-2">
-              <span className="font-medium text-slate-700">Corrigés générés</span>
-              <span className="text-slate-500">
-                {is_unlimited ? "∞" : `${corrections_used} / ${corrections_limit}`}
-              </span>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full border-[1.5px] border-foreground bg-background">
-              <div
-                className="h-full bg-foreground transition-all"
-                style={{ width: is_unlimited ? "10%" : `${pct(corrections_used, corrections_limit)}%` }}
-              />
-            </div>
-            {!is_unlimited && (
-              <p className="text-xs text-slate-400 mt-1">
-                {corrections_remaining} corrigé{corrections_remaining > 1 ? "s" : ""} restant{corrections_remaining > 1 ? "s" : ""}
-              </p>
-            )}
-          </div>
-        </div>
+    <div className="esp-page">
+      <PageHead eyebrow="Compte" title="Utilisation" subtitle="Consultez vos usages et rechargez votre compte." />
+      <div className="esp-plan">
+        <section className="esp-panel esp-quota">
+          <h2>Votre quota actuel</h2>
+          <Usage label="Épreuves générées" used={exams_used} limit={exams_limit} unlimited={is_unlimited} />
+          <Usage label="Corrigés générés" used={corrections_used} limit={corrections_limit} unlimited={is_unlimited} />
+        </section>
+        <section className="esp-panel esp-offer" id="forfaits">
+          <span className="esp-eyebrow">Recharger mon compte</span>
+          <h2>Forfaits</h2>
+          <ul>{PLANS.map((p) => <li key={p.id}><Check /><span><strong>{p.name}</strong> · {p.price} · {p.features.join(", ")}</span></li>)}</ul>
+          <p className="esp-hint">Paiement par Mobile Money MTN. Les crédits achetés n’expirent pas.</p>
+          {!is_unlimited && <Button variant="framed" onClick={() => openPaywall("recharge")}>Choisir un forfait <ArrowRight /></Button>}
+        </section>
       </div>
 
-
-      {/* Historique */}
       {history.length > 0 && (
-        <div>
-          <h2 className="font-display text-lg font-bold mb-4">Historique des paiements</h2>
-
-          {/* Cartes (mobile / tablette) */}
-          <div className="lg:hidden space-y-3">
+        <section className="esp-block">
+          <div className="esp-block-head"><h2>Historique des paiements</h2></div>
+          <div className="esp-panel esp-list" role="table" aria-label="Paiements">
+            <div className="esp-row esp-row-head" role="row">
+              <span role="columnheader">Forfait</span><span role="columnheader">Montant</span><span role="columnheader">Date</span><span role="columnheader">Statut</span><span role="columnheader">Crédits</span>
+            </div>
             {history.map((s) => {
-              const st = statusConfig[s.status] ?? statusConfig["pending"];
+              const st = PAYMENT_STATUS[s.status] ?? PAYMENT_STATUS.pending;
               return (
-                <div key={s.id} className="card-ink p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <span className="font-medium text-slate-900 capitalize">{s.plan}</span>
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                      <st.Icon className="w-3.5 h-3.5" />
-                      {st.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap text-sm text-slate-600 mb-2">
-                    <span className="font-medium">{s.amount.toLocaleString()} FCFA</span>
-                    <span className="text-xs text-slate-400">
-                      +{s.exams_added} épreuve{s.exams_added > 1 ? "s" : ""} / +{s.corrections_added} corrigé{s.corrections_added > 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-400 pt-2 border-t border-slate-100">
-                    {new Date(s.created_at).toLocaleDateString("fr-FR")}
-                  </div>
+                <div className="esp-row" role="row" key={s.id}>
+                  <span role="cell" className="esp-row-title"><span><strong className="capitalize">{s.plan}</strong></span></span>
+                  <span role="cell">{s.amount.toLocaleString("fr-FR")} FCFA</span>
+                  <span role="cell">{formatDate(s.created_at)}</span>
+                  <span role="cell"><span className={`esp-status ${st.className}`}>{st.label}</span></span>
+                  <span role="cell" className="esp-row-actions">+{s.exams_added} épr. · +{s.corrections_added} corr.</span>
                 </div>
               );
             })}
           </div>
-
-          {/* Tableau (desktop) */}
-          <div className="hidden lg:block card-ink overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Plan</th>
-                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Montant</th>
-                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Crédits</th>
-                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Statut</th>
-                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {history.map((s) => {
-                  const st = statusConfig[s.status] ?? statusConfig["pending"];
-                  return (
-                    <tr key={s.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900 capitalize">{s.plan}</td>
-                      <td className="px-4 py-3 text-slate-600">{s.amount.toLocaleString()} FCFA</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        +{s.exams_added} épreuve{s.exams_added > 1 ? "s" : ""} / +{s.corrections_added} corrigé{s.corrections_added > 1 ? "s" : ""}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                          <st.Icon className="w-3.5 h-3.5" />
-                          {st.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">
-                        {new Date(s.created_at).toLocaleDateString("fr-FR")}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </section>
       )}
+
+      <p className="esp-note">Une question sur le paiement ? <Link href="/dashboard/help#fonctionne-paiement" className="esp-inline-link">Consultez l’aide</Link>.</p>
     </div>
   );
 }
 
 export default function SubscriptionPage() {
   return (
-    <Suspense>
+    <Suspense fallback={null}>
       <SubscriptionContent />
     </Suspense>
   );

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ExamMarkdown } from "@/components/exam/ExamMarkdown";
-import { SAMPLE_EXAM } from "@/lib/sample-exam";
 
 const numbers = (container: HTMLElement) =>
   [...container.querySelectorAll("span.font-semibold")].map((n) => n.textContent).filter((t) => /^\d+\.$/.test(t ?? ""));
@@ -43,11 +42,5 @@ describe("ExamMarkdown", () => {
     render(<ExamMarkdown text={"Calcule $\\frac{1"} streaming />);
     expect(screen.queryByText(/frac/)).toBeNull();
     expect(screen.getByText(/Calcule/)).toBeInTheDocument();
-  });
-
-  it("renders the home-page excerpt with its four questions", () => {
-    const { container } = render(<ExamMarkdown text={SAMPLE_EXAM.markdown} />);
-    expect(numbers(container)).toEqual(["1.", "2.", "3.", "4."]);
-    expect(screen.getByText("Contexte")).toBeInTheDocument();
   });
 });

@@ -7,8 +7,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { AuthHead, AuthShell, FieldRow, RevealButton } from "@/components/site/auth-card";
 
 const schema = z
   .object({
@@ -27,6 +29,7 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
   const [showPassword, setShowPassword] = useState(false);
+  const [typing, setTyping] = useState(false);
 
   const {
     register,
@@ -47,81 +50,30 @@ function ResetPasswordForm() {
     }
   };
 
+  const watch = { onFocus: () => setTyping(true), onBlurCapture: () => setTyping(false) };
+
   return (
-    <div className="rounded-2xl border-[1.5px] border-foreground bg-card p-6 shadow-[6px_6px_0_var(--foreground)] sm:p-8">
-          <h1 className="font-display text-3xl font-bold tracking-tight mb-1">Nouveau mot de passe</h1>
-          <p className="text-muted text-sm mb-8">Choisissez un nouveau mot de passe pour votre compte.</p>
-
-          {!token ? (
-            <p className="text-sm text-red-600">
-              Lien invalide. Refaites une demande depuis la page{" "}
-              <Link href="/auth/forgot-password" className="underline font-medium">
-                mot de passe oublié
-              </Link>
-              .
-            </p>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Nouveau mot de passe
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                  <input
-                    {...register("new_password")}
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Minimum 8 caractères"
-                    className="w-full pl-10 pr-10 h-11 rounded-xl border-[1.5px] border-foreground/25 bg-card text-sm outline-none transition focus:border-foreground focus:shadow-[var(--shadow-ink)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {errors.new_password && (
-                  <p className="mt-1 text-xs text-red-600">{errors.new_password.message}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Confirmer le mot de passe
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                  <input
-                    {...register("confirm_password")}
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-4 h-11 rounded-xl border-[1.5px] border-foreground/25 bg-card text-sm outline-none transition focus:border-foreground focus:shadow-[var(--shadow-ink)]"
-                  />
-                </div>
-                {errors.confirm_password && (
-                  <p className="mt-1 text-xs text-red-600">{errors.confirm_password.message}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn-ink w-full"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Mise à jour...
-                  </>
-                ) : (
-                  "Réinitialiser le mot de passe"
-                )}
-              </button>
-            </form>
-          )}
-        </div>
+    <AuthShell bear={{ handsUp: typing }}>
+      <AuthHead title="Nouveau mot de passe" subtitle="Choisissez un nouveau mot de passe pour votre compte." />
+      {!token ? (
+        <p className="auth-error" role="alert">
+          Lien invalide. <Link href="/auth/forgot-password" className="auth-link">Refaites une demande</Link>.
+        </p>
+      ) : (
+        <form className="auth-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <FieldRow id="auth-new-password" label="Nouveau mot de passe" icon={<Lock />} error={errors.new_password?.message}>
+            <input id="auth-new-password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Minimum 8 caractères" {...register("new_password")} {...watch} />
+            <RevealButton shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
+          </FieldRow>
+          <FieldRow id="auth-confirm-password" label="Confirmer le mot de passe" icon={<Lock />} error={errors.confirm_password?.message}>
+            <input id="auth-confirm-password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="••••••••" {...register("confirm_password")} {...watch} />
+          </FieldRow>
+          <Button type="submit" className="auth-submit" disabled={isSubmitting}>
+            {isSubmitting ? <><Loader2 className="animate-spin" /> Mise à jour…</> : "Mettre à jour"}
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 }
 

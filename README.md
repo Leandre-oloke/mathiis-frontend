@@ -83,9 +83,10 @@ tests/
 ├── lib/utils.test.ts              # formatage (dates, tailles de fichiers), classes
 ├── exam/math-and-figures.test.ts  # formules coupées pendant le flux, lecture des [FIGURE]
 ├── exam/exam-markdown.test.tsx    # rendu d'une épreuve : numérotation, KaTeX, figures
+├── lib/programme.test.ts          # règles du programme (classes, durées, SA, activités), FAQ
 ├── store/stores.test.ts           # stores auth et quota
-├── components/sidebar.test.tsx    # barre latérale et menu du compte
-└── auth/auth-forms.test.tsx       # connexion et inscription (validation, envoi)
+├── components/espace-shell.test.tsx # espace : navigation, menu du compte, raccourcis, palette Ctrl+K
+└── auth/auth-forms.test.tsx       # connexion et inscription (validation, envoi, ours, crédit)
 ```
 
 L'API est remplacée par des fonctions simulées **dans les tests uniquement**
@@ -94,12 +95,27 @@ présente dans `src/`, l'application parle toujours au vrai backend.
 
 ## Identité visuelle
 
-Tout le site est en **noir et blanc** : encre noire sur fond blanc. Les jetons
-(`--background`, `--foreground`, `--muted`…) et les classes communes
-(`btn-ink`, `btn-framed`, `card-ink`) sont dans `src/app/globals.css`. Les
-couleurs vives de Tailwind y sont redéfinies en gris ; seul le rouge reste,
-pour les erreurs et les suppressions. Polices : Space Grotesk (titres),
-IBM Plex Sans (texte), IBM Plex Mono, Libre Baskerville (épreuves).
+Le site reprend à l'identique la maquette de présentation (dépôt `templates`) :
+encre noire sur fond blanc, ombres franches, Space Grotesk / IBM Plex /
+Libre Baskerville. Les styles en viennent tels quels, dans `src/styles/` :
+
+- `site.css` : accueil, en-tête, pied de page, pages d'authentification ;
+- `espace.css` : l'espace connecté (barre latérale, tableaux, générateur) ;
+- `motion.css` : animations (mot tournant, vague, mur d'épreuves…).
+
+`src/app/globals.css` les importe, définit les jetons Tailwind et redéfinit en
+gris les couleurs vives encore utilisées par quelques écrans (seul le rouge
+reste, pour les erreurs).
+
+La mascotte (l'ours des pages de connexion et de la visite guidée) est
+« login-screen-character » de JcToon, sous licence CC BY 4.0
+(`public/rive/kofi-ours.riv`) : le crédit doit rester visible partout où elle
+apparaît.
+
+La démo de l'accueil suit le programme officiel mais n'invente aucune épreuve :
+elle n'affiche qu'une vraie épreuve produite par le modèle (Mathématiques,
+Tle D, `src/lib/sample-exams.ts`) ; pour tout autre choix, elle invite à créer
+un compte.
 
 ## Structure du projet
 
@@ -107,13 +123,15 @@ IBM Plex Sans (texte), IBM Plex Mono, Libre Baskerville (épreuves).
 src/
 ├── app/
 │   ├── page.tsx       # Page d'accueil publique
-│   ├── auth/          # Connexion, inscription, mot de passe oublié (cadre commun : layout.tsx)
+│   ├── auth/          # Connexion, inscription, mot de passe oublié
 │   └── dashboard/      # Espace utilisateur (générer, mes épreuves, documents...)
 │       └── generate/   # Formulaire de génération d'épreuve
 ├── components/         # Composants réutilisables
+│   ├── site/           # Accueil, en-tête, pied de page, carte d'authentification, ours
+│   ├── espace/         # Coque de l'espace (EspaceShell), tableaux, zoom, aperçu de la démo
 │   ├── exam/           # ExamMarkdown (rendu d'épreuve) et Figure3D
-│   ├── home/           # En-tête, pied de page et animations de l'accueil
-│   └── layout/         # Barre latérale et menu du compte
+│   └── ui/             # Boutons, menus, boîtes de dialogue, palette de commandes
+├── styles/             # Feuilles de style reprises de la maquette
 ├── store/               # État global Zustand (auth, quotas, épreuves)
 └── lib/                 # Client API, utilitaires, streaming SSE
 ```

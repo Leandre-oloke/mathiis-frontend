@@ -18,8 +18,8 @@ export interface QuotaState {
 interface QuotaStore extends QuotaState {
   fetchQuota: () => Promise<void>;
   showPaywall: boolean;
-  paywallReason: "exam" | "correction" | null;
-  openPaywall: (reason: "exam" | "correction") => void;
+  paywallReason: "exam" | "correction" | "recharge" | null;
+  openPaywall: (reason: "exam" | "correction" | "recharge") => void;
   closePaywall: () => void;
 }
 

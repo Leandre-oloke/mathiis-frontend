@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useQuotaStore } from "@/store/quota";
 import { useExamStore } from "@/store/exams";
-import {
-  Sparkles, Zap, Layers, Clock, BookOpen, ChevronDown,
-  ArrowRight, CheckCircle2, Download, Eye, AlertCircle, ExternalLink,
-  Sigma, Atom, Dna,
-} from "lucide-react";
+import { BookOpen, Check, ChevronDown, Clock, Download, ExternalLink, Eye, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageHead } from "@/components/espace/parts";
+import { ZoomableDocument } from "@/components/espace/zoomable-document";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { ExamMarkdown } from "@/components/exam/ExamMarkdown";
@@ -1121,28 +1122,20 @@ const NOTIONS_BY_SUBJECT: Record<string, Record<string, string[]>> = {
 };
 
 const SUBJECTS = [
-  {
-    key: "Mathématiques",
-    desc: "Algèbre, analyse, géométrie",
-    Icon: Sigma,
-    selected: "border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50",
-    iconWrap: "bg-indigo-100 text-indigo-600",
-  },
-  {
-    key: "PCT",
-    desc: "Physique, Chimie, Technologie",
-    Icon: Atom,
-    selected: "border-amber-600 ring-1 ring-amber-600 bg-amber-50",
-    iconWrap: "bg-amber-100 text-amber-600",
-  },
-  {
-    key: "SVT",
-    desc: "Sciences de la Vie et de la Terre",
-    Icon: Dna,
-    selected: "border-emerald-600 ring-1 ring-emerald-600 bg-emerald-50",
-    iconWrap: "bg-emerald-100 text-emerald-600",
-  },
+  { key: "Mathématiques", desc: "Algèbre, analyse, géométrie" },
+  { key: "PCT", desc: "Physique, Chimie, Technologie" },
+  { key: "SVT", desc: "Sciences de la Vie et de la Terre" },
 ] as const;
+const SUBJECT_SYMBOLS: Record<string, string> = { "Mathématiques": "∑", PCT: "⚛", SVT: "❋" };
+
+/** A selectable card with an ink check, as in the workspace mockup. */
+function Choice({ selected, onClick, children, className = "" }: { selected: boolean; onClick: () => void; children: ReactNode; className?: string }) {
+  return (
+    <button type="button" className={`esp-choice ${className}${selected ? " is-on" : ""}`} aria-pressed={selected} onClick={onClick}>
+      <span className="esp-choice-dot" aria-hidden="true">{selected && <Check />}</span>{children}
+    </button>
+  );
+}
 
 const COLLEGE = new Set(["6e", "5e", "4e", "3e"]);
 // Durées imposées par les consignes de l'AE (non modifiables par l'utilisateur) :
@@ -1467,91 +1460,45 @@ export default function GeneratePage() {
   function renderDetailPicker(pseudoLabel: string, saList: string[], detailsMap: Record<string, Record<string, SaGroup[]>>) {
     const picked = selectedPicksByPart[pseudoLabel] || [];
     const expandedSA = expandedSAByPart[pseudoLabel] || null;
+    const groups = expandedSA ? detailsMap[classe]?.[expandedSA] : undefined;
     return (
       <>
-        <div className="flex flex-wrap gap-2">
+        <div className="esp-sa-chips">
           {saList.map((sa) => {
             const countForSA = picked.filter((p) => p.sa === sa).length;
             const isOpen = expandedSA === sa;
             return (
-              <button
-                key={sa}
-                type="button"
-                onClick={() => toggleExpandSA(pseudoLabel, sa)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all inline-flex items-center gap-1.5",
-                  countForSA > 0
-                    ? "bg-amber-600 text-white border-amber-600"
-                    : isOpen
-                    ? "bg-amber-50 text-amber-700 border-amber-300"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-600"
-                )}
-              >
-                {saChipLabel(classe, sa)}
-                {countForSA > 0 && (
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-[10px] font-semibold">
-                    {countForSA}
-                  </span>
-                )}
+              <button key={sa} type="button" aria-expanded={isOpen} onClick={() => toggleExpandSA(pseudoLabel, sa)}
+                className={cn("esp-sa", isOpen && "is-open", countForSA > 0 && "has-picks")}>
+                {saChipLabel(classe, sa)}{countForSA > 0 && <i>{countForSA}</i>}
               </button>
             );
           })}
         </div>
-        {expandedSA && (() => {
-          const groups = detailsMap[classe]?.[expandedSA];
-          if (!groups || groups.length === 0) {
-            return (
-              <p className="text-xs text-slate-400 italic px-1">
-                Détail des activités non disponible pour cette SA.
-              </p>
-            );
-          }
-          const renderItem = (item: string) => {
-            const isSelected = picked.some((p) => p.sa === expandedSA && p.activite === item);
-            const isDisabled = !isSelected && picked.length >= MAX_NOTIONS;
-            return (
-              <label
-                key={item}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer",
-                  isSelected
-                    ? "bg-amber-100 text-amber-800"
-                    : isDisabled
-                    ? "text-slate-300 cursor-not-allowed"
-                    : "text-slate-600 hover:bg-amber-50"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  disabled={isDisabled}
-                  onChange={() => toggleActivite(pseudoLabel, expandedSA, item)}
-                  className="w-3.5 h-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                />
-                {item}
-              </label>
-            );
-          };
-          return (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2">
-              <p className="px-1 pb-1 text-xs font-medium text-slate-500 truncate" title={saChipLabel(classe, expandedSA)}>
-                {saChipLabel(classe, expandedSA)} - choisis au moins une activité à évaluer
-              </p>
-              <div className="max-h-48 overflow-y-auto space-y-0.5">
+        {expandedSA && (!groups || groups.length === 0
+          ? <p className="esp-hint">Détail des activités non disponible pour cette SA.</p>
+          : <div className="esp-sa-panel">
+              <p className="esp-sa-head"><BookOpen aria-hidden="true" />{saChipLabel(classe, expandedSA)} · cochez au moins une activité à évaluer</p>
+              <div className="esp-sa-list">
                 {groups.map((grp) => (
-                  <div key={grp.label}>
-                    <p className="px-2 pt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{grp.label}</p>
-                    {grp.items.map(renderItem)}
+                  <div key={grp.label} className="esp-sa-group">
+                    <span>{grp.label}</span>
+                    {grp.items.map((item) => {
+                      const on = picked.some((p) => p.sa === expandedSA && p.activite === item);
+                      return (
+                        <label key={item} className={on ? "is-on" : ""}>
+                          <input type="checkbox" checked={on} disabled={!on && picked.length >= MAX_NOTIONS} onChange={() => toggleActivite(pseudoLabel, expandedSA, item)} />
+                          {item}
+                        </label>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
-            </div>
-          );
-        })()}
+            </div>)}
         {picked.length > 0 && (
-          <p className="text-xs text-amber-600 font-medium">
+          <p className={cn("esp-sa-count", picked.length >= MAX_NOTIONS && "is-ok")}>
             {picked.length}/{MAX_NOTIONS} activité{picked.length > 1 ? "s" : ""} sélectionnée{picked.length > 1 ? "s" : ""}
-            {picked.length >= MAX_NOTIONS && " (maximum atteint)"}
           </p>
         )}
       </>
@@ -1748,715 +1695,296 @@ export default function GeneratePage() {
   // ── Rendu ─────────────────────────────────────────────────────────────────
 
   if (phase === "streaming" || phase === "done" || phase === "error") {
+    const kind = mode === "exercice" ? "Exercice" : "Épreuve";
     return (
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{mode === "exercice" ? "Exercice" : "Épreuve"} · {subject} · Classe {classe}</p>
-            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
-              {phase === "done" ? "Génération terminée" : phase === "error" ? "Génération interrompue" : "Génération en cours"}
-            </h1>
-          </div>
-          {phase === "done" && (
-            <button onClick={handleRestart} className="btn-framed">← Nouvelle épreuve</button>
-          )}
-        </div>
+      <div className="esp-page">
+        <PageHead eyebrow={`${kind} · ${subject} · Classe ${classe}`}
+          title={phase === "done" ? "Génération terminée" : phase === "error" ? "Génération interrompue" : "Génération en cours"}
+          subtitle={phase === "streaming" ? "L’épreuve s’écrit sous vos yeux, formules et figures comprises." : undefined}
+          actions={phase !== "streaming" ? <Button variant="framed" onClick={handleRestart}><RotateCcw /> Nouvelle génération</Button> : undefined} />
 
-        {/* Barre de progression par étape */}
-        <div className="card-ink space-y-4 p-5">
-          <div className="flex items-center justify-between gap-3 text-[13px]">
-            <span className="font-medium">{phase === "done" ? "Génération terminée" : phase === "error" ? "Erreur"
+        <div className="esp-progress">
+          <div className="esp-progress-top">
+            <span>{phase === "done" ? "Génération terminée" : phase === "error" ? "Erreur"
               : doneCount >= STEPS.length ? "Finalisation (figures, contextes et tâches), encore quelques minutes…"
               : `Génération en cours, veuillez patienter… ${progress} %`}</span>
-            <span className="font-mono text-xs text-muted">{doneCount}/{STEPS.length} étapes</span>
+            <span>{doneCount}/{STEPS.length} étapes</span>
           </div>
-
-          <div className="h-2 w-full overflow-hidden rounded-full bg-foreground/[0.08]">
-            <div className={cn("h-full rounded-full transition-all duration-500", phase === "error" ? "bg-red-600" : "bg-foreground")} style={{ width: `${progress}%` }} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+          <div className="esp-progress-track"><span style={{ width: `${progress}%` }} /></div>
+          <div className="esp-progress-steps">
             {STEPS.map((step) => {
               const done = completedSteps.includes(step);
               const active = activeSteps.has(step);
-              return (
-                <div
-                  key={step}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg border-[1.5px] px-3 py-1.5 text-xs font-semibold transition-all",
-                    done ? "border-foreground bg-foreground text-background"
-                    : active ? "border-foreground"
-                    : "border-foreground/15 text-muted"
-                  )}
-                >
-                  {done
-                    ? <CheckCircle2 className="h-3 w-3" />
-                    : <span className={cn("inline-block h-2 w-2 rounded-full bg-current", active ? "animate-pulse" : "opacity-40")} />}
-                  {STEP_LABELS[step]}
-                </div>
-              );
+              return <span key={step} className={done ? "is-done" : active ? "is-active" : ""}>{done ? <Check /> : <i />}{STEP_LABELS[step]}</span>;
             })}
           </div>
         </div>
 
-        {/* L'épreuve s'écrit en direct, formules et figures rendues */}
-        {phase !== "error" && (
-          <div
-            ref={previewRef}
-            aria-live="polite"
-            className="h-[28rem] overflow-y-auto rounded-md border-[1.5px] border-foreground bg-card p-6 shadow-[6px_6px_0_var(--foreground)] sm:p-8"
-          >
-            {streamText
-              ? <ExamMarkdown text={streamText} streaming={phase === "streaming"} />
-              : <span className="italic text-muted">L’épreuve s’affiche ici…</span>}
-            {phase === "streaming" && <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-foreground align-middle" />}
-          </div>
-        )}
-
-        {/* Erreur */}
         {phase === "error" && (
-          <div className="flex gap-4 rounded-2xl border-[1.5px] border-red-600 bg-red-50 p-6">
-            <AlertCircle className="mt-0.5 h-6 w-6 shrink-0 text-red-600" />
-            <div>
-              <p className="font-semibold text-red-700">Erreur lors de la génération</p>
-              <p className="mt-1 text-sm text-red-600">{errorMsg}</p>
-              <button onClick={handleRestart} className="mt-3 text-sm font-semibold text-red-700 underline">Réessayer</button>
-            </div>
+          <div className="esp-error" role="alert">
+            <strong>Erreur lors de la génération.</strong> {errorMsg}{" "}
+            <button type="button" className="esp-inline-link" onClick={handleRestart}>Réessayer</button>
           </div>
         )}
 
-        {/* Actions après génération */}
-        {phase === "done" && examId && (
-          <div className="card-ink space-y-4 p-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 shrink-0" />
-              <div>
-                <p className="font-display text-lg font-bold">{mode === "exercice" ? "Exercice généré avec succès" : "Épreuve générée avec succès"}</p>
-                <p className="text-sm text-muted">Téléchargez-la ou consultez-la dans vos épreuves.</p>
+        {phase !== "error" && (
+          <ZoomableDocument>
+            <div className="esp-sheet" ref={previewRef} aria-live="polite">
+              <div className="esp-sheet-head"><span>Mathiis · {kind}</span><span>Classe {classe}</span></div>
+              <h2>{subject}</h2>
+              <p className="esp-sheet-meta">Classe : {classe}{mode === "epreuve" ? ` · Durée : ${formatDuree(duration)}` : ""}</p>
+              <div className="esp-sheet-body">
+                {streamText
+                  ? <ExamMarkdown text={streamText} streaming={phase === "streaming"} />
+                  : <div className="esp-sheet-blank">{Array.from({ length: 7 }, (_, i) => <i key={i} style={{ width: `${90 - (i % 3) * 18}%` }} />)}<p>L’épreuve s’affiche ici…</p></div>}
+                {phase === "streaming" && <span className="esp-caret" aria-hidden="true" />}
               </div>
+              {phase === "done" && examId && (
+                <div className="esp-sheet-done">
+                  <span><Check /> {kind} prêt{mode === "exercice" ? "" : "e"}</span>
+                  <span className="esp-row-actions">
+                    <Button size="sm" className="esp-primary" disabled={downloading}
+                      onClick={async () => {
+                        setDownloading(true);
+                        try { await downloadPdf(examId); } catch { toast.error("Échec du téléchargement du PDF"); } finally { setDownloading(false); }
+                      }}>
+                      {downloading ? <Loader2 className="animate-spin" /> : <Download />} PDF
+                    </Button>
+                    <Button variant="framed" size="sm" onClick={() => router.push(`/dashboard/exams/${examId}`)}><Eye /> Voir l’épreuve</Button>
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={async () => {
-                  setDownloading(true);
-                  try {
-                    await downloadPdf(examId);
-                  } catch {
-                    toast.error("Échec du téléchargement du PDF");
-                  } finally {
-                    setDownloading(false);
-                  }
-                }}
-                disabled={downloading}
-                className="btn-ink"
-              >
-                <Download className="h-4 w-4" />
-                {downloading ? "Téléchargement…" : "Télécharger le PDF"}
-              </button>
-              <button onClick={() => router.push(`/dashboard/exams/${examId}`)} className="btn-framed">
-                <Eye className="h-4 w-4" />Voir l’épreuve
-              </button>
-              <button onClick={() => router.push("/dashboard/exams")} className="px-3 text-sm font-semibold underline-offset-4 hover:underline">
-                Mes épreuves →
-              </button>
-            </div>
-          </div>
+          </ZoomableDocument>
         )}
       </div>
     );
   }
 
-  // ── Formulaire ────────────────────────────────────────────────────────────
+  // Checks the picks against the programme rules, then asks which engine to use.
+  function validateAndChooseEngine() {
+    if (parts) {
+      // Mode Exercice : toujours 1 ou 2 activités, quelle que soit la matière --
+      // jamais la règle épreuve de MIN_NOTIONS_BY_SUBJECT (ex. SVT 2-ou-3).
+      const minForSubject = mode === "exercice"
+        ? 1
+        : subject ? (MIN_NOTIONS_BY_SUBJECT[subject] ?? MAX_NOTIONS) : MAX_NOTIONS;
+      const missing = parts.filter((p) => {
+        const n = (selectedPicksByPart[p.label] || []).length;
+        return n < minForSubject || n > MAX_NOTIONS;
+      });
+      if (missing.length > 0) {
+        const countTxt = minForSubject === MAX_NOTIONS
+          ? `exactement ${MAX_NOTIONS} activités`
+          : `entre ${minForSubject} et ${MAX_NOTIONS} activités`;
+        toast.error(`Sélectionne ${countTxt} (dans les SA de ton choix) pour la partie ${missing[0].label}`);
+        return;
+      }
+    } else if (usesPoolDetail) {
+      if ((selectedPicksByPart["__pool__"] || []).length !== MAX_NOTIONS) {
+        toast.error(`Sélectionne exactement ${MAX_NOTIONS} activités (dans les SA de ton choix) avant de générer l'épreuve`);
+        return;
+      }
+    } else if (mode === "exercice") {
+      if (selectedNotions.length < 1 || selectedNotions.length > 2) {
+        toast.error("Sélectionne 1 ou 2 notions pour générer un exercice");
+        return;
+      }
+    } else if (selectedNotions.length !== MAX_NOTIONS) {
+      toast.error(`Sélectionne exactement ${MAX_NOTIONS} notions au programme avant de générer l'épreuve`);
+      return;
+    }
+    if (showOptionalChimie && includeChimie && (selectedPicksByPart["__chimie__"] || []).length < 2) {
+      toast.error("Sélectionne au moins 2 activités de Chimie (ou décoche la partie Chimie)");
+      return;
+    }
+    setShowEngineModal(true);
+  }
+
+  const chosen = flatSelectedNotions;
+  const ready = !!mode && !!subject;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Générer une épreuve</h1>
-        <p className="text-slate-500 mt-1">
-          Configurez les paramètres : la génération s&apos;affiche en direct.
-        </p>
-      </div>
-
-      <div className="card-ink p-6 space-y-6">
-        {isAdmin && (
-          <>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-slate-900">Mode rapide</h2>
-                <p className="text-xs text-slate-400">Génération en direct · résultat visible en temps réel</p>
-              </div>
-              <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">
-                <Layers className="w-3 h-3" />Standard
-              </span>
+    <div className="esp-page">
+      <PageHead eyebrow="Nouvelle épreuve" title="Générer une épreuve" subtitle="Configurez les paramètres : la génération s’affiche en direct." />
+      <div className="esp-gen">
+        <form className="esp-panel esp-gen-form" onSubmit={(e) => { e.preventDefault(); validateAndChooseEngine(); }}>
+          <fieldset><legend><span>1</span>Type de génération</legend>
+            <div className="esp-choice-row two">
+              <Choice selected={mode === "epreuve"} onClick={() => handleModeChange("epreuve")}><span><strong>Épreuve complète</strong><small>3 problèmes + contexte / tâche</small></span></Choice>
+              <Choice selected={mode === "exercice"} onClick={() => handleModeChange("exercice")}><span><strong>Exercice</strong><small>1 ou 2 notions ciblées</small></span></Choice>
             </div>
+          </fieldset>
 
-            <hr className="border-slate-100" />
-          </>
-        )}
-
-        {/* Type de génération : épreuve complète ou exercice isolé */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Type de génération</label>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { id: "epreuve" as const, label: "Épreuve complète", desc: "3 problèmes + contexte/tâche" },
-              { id: "exercice" as const, label: "Exercice", desc: "" },
-            ]).map((m) => (
-              <button
-                key={m.id}
-                onClick={() => handleModeChange(m.id)}
-                className={cn(
-                  "text-left rounded-xl border p-3 transition-all",
-                  mode === m.id
-                    ? "border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50"
-                    : "border-slate-200 hover:border-slate-300"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      mode === m.id ? "border-indigo-600" : "border-slate-300"
-                    )}
-                  >
-                    {mode === m.id && <span className="w-2 h-2 rounded-full bg-indigo-600" />}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900">{m.label}</span>
-                </div>
-                {m.desc && <div className="text-xs text-slate-400 mt-0.5 ml-6">{m.desc}</div>}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Matière */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Matière</label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-            {SUBJECTS.map(({ key, desc, Icon, selected, iconWrap }) => {
-              const isSelected = subject === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleSubjectChange(key)}
-                  className={cn(
-                    "min-w-0 text-left rounded-xl border p-2 sm:p-3 transition-all",
-                    isSelected ? selected : "border-slate-200 hover:border-slate-300"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                    <div className={cn("w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center", iconWrap)}>
-                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                    <span
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                        isSelected ? "border-indigo-600" : "border-slate-300"
-                      )}
-                    >
-                      {isSelected && <span className="w-2 h-2 rounded-full bg-indigo-600" />}
-                    </span>
-                  </div>
-                  <div className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight break-words">{key}</div>
-                  <div className="hidden sm:block text-xs text-slate-400 mt-0.5 line-clamp-2">{desc}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {!mode || !subject ? (
-          <p className="text-sm text-slate-400 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
-            Choisis un type de génération et une matière pour continuer.
-          </p>
-        ) : (
-        <>
-        {/* Classe */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Classe</label>
-          <div className="relative">
-            <select
-              value={classe}
-              onChange={(e) => handleClasseChange(e.target.value)}
-              className="w-full appearance-none px-4 py-2.5 border-[1.5px] border-foreground rounded-xl text-sm text-slate-800 focus:outline-none focus:shadow-[var(--shadow-ink)] bg-white pr-10"
-            >
-              {CLASSES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+          <fieldset><legend><span>2</span>Matière</legend>
+            <div className="esp-choice-row three">
+              {SUBJECTS.map(({ key, desc }) => (
+                <Choice key={key} className="tall" selected={subject === key} onClick={() => handleSubjectChange(key)}>
+                  <span><i className="esp-symbol" aria-hidden="true">{SUBJECT_SYMBOLS[key]}</i><strong>{key}</strong><small>{desc}</small></span>
+                </Choice>
               ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Durée — fixée par classe (grille officielle), non modifiable ;
-            pas de durée pour un exercice isolé (pas d'épreuve chronométrée). */}
-        {mode === "epreuve" && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Durée
-            </label>
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {formatDuree(duration)}
-              </div>
-              <span className="text-xs text-slate-400">
-                Durée officielle fixée pour la classe {classe}
-              </span>
             </div>
-          </div>
-        )}
+          </fieldset>
 
-        {/* Notions */}
-        {parts ? (
-          <div className="space-y-5">
-            {parts.map((part) => {
-              const partNotions = part.notions[classe] || [];
-              const picked = selectedPicksByPart[part.label] || [];
-              const expandedSA = expandedSAByPart[part.label] || null;
-              const minForSubject = subject ? (MIN_NOTIONS_BY_SUBJECT[subject] ?? MAX_NOTIONS) : MAX_NOTIONS;
-              return (
-                <div key={part.label} className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                    {part.label === "Notions" ? "Notions" : `Notions - ${part.label}`}
-                    <span className="text-xs text-slate-400 font-normal">
-                      {minForSubject === MAX_NOTIONS
-                        ? `(${MAX_NOTIONS} activités obligatoires)`
-                        : `(${minForSubject} à ${MAX_NOTIONS} activités)`}
-                    </span>
-                  </label>
-                  {subject === "SVT" && (
-                    <p className="text-[11px] text-slate-400 -mt-1">
-                      La 1ʳᵉ activité cochée alimente la Restitution (Partie I), les suivantes le Problème (Partie II).
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {partNotions.map((sa) => {
-                      const countForSA = picked.filter((p) => p.sa === sa).length;
-                      const isOpen = expandedSA === sa;
-                      return (
-                        <button
-                          key={sa}
-                          type="button"
-                          onClick={() => toggleExpandSA(part.label, sa)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all inline-flex items-center gap-1.5",
-                            countForSA > 0
-                              ? "bg-amber-600 text-white border-amber-600"
-                              : isOpen
-                              ? "bg-amber-50 text-amber-700 border-amber-300"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-600"
-                          )}
-                        >
-                          {saChipLabel(classe, sa)}
-                          {countForSA > 0 && (
-                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-[10px] font-semibold">
-                              {countForSA}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* SA ouverte : liste à cocher de ses groupes (Activités/TP
-                      pour PCT, Séquences pour SVT) -- le comptage
-                      (MAX_NOTIONS) porte sur les Activités cochées, jamais
-                      sur la SA elle-même (demande explicite utilisateur) :
-                      choisir une SA sans cocher au moins une Activité ne
-                      sélectionne donc rien. */}
-                  {expandedSA && (() => {
-                    const groups = part.details?.[classe]?.[expandedSA];
-                    if (!groups || groups.length === 0) {
-                      return (
-                        <p className="text-xs text-slate-400 italic px-1">
-                          Détail des activités non disponible pour cette SA.
-                        </p>
-                      );
-                    }
-                    const atMax = picked.length >= MAX_NOTIONS;
-                    const renderItem = (item: string) => {
-                      const checked = picked.some((p) => p.sa === expandedSA && p.activite === item);
-                      const disabled = !checked && atMax;
-                      return (
-                        <label
-                          key={item}
-                          className={cn(
-                            "flex items-start gap-2 px-2 py-1 rounded-md text-xs",
-                            disabled ? "text-slate-300 cursor-not-allowed" : "text-slate-600 hover:bg-amber-50 cursor-pointer"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={disabled}
-                            onChange={() => toggleActivite(part.label, expandedSA, item)}
-                            className="mt-0.5 shrink-0"
-                          />
-                          <span>{item}</span>
-                        </label>
-                      );
-                    };
+          {!ready ? (
+            <p className="esp-hint">Choisissez le type de génération et la matière pour continuer.</p>
+          ) : (<>
+            <fieldset><legend><span>3</span>Classe</legend>
+              <div className="esp-select">
+                <select id="gen-classe" value={classe} onChange={(e) => handleClasseChange(e.target.value)} aria-label="Classe">
+                  {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <ChevronDown aria-hidden="true" />
+              </div>
+              {/* Durée fixée par classe (grille officielle), non modifiable ; pas de durée pour un exercice isolé. */}
+              {mode === "epreuve" && (
+                <div className="esp-duree"><Clock aria-hidden="true" /><strong>{formatDuree(duration)}</strong><span>Durée officielle fixée pour la classe {classe}{subject === "SVT" ? " en SVT" : ""}</span></div>
+              )}
+            </fieldset>
+
+            <fieldset><legend><span>4</span>Notions <em>{mode === "exercice" ? "1 ou 2 activités" : subject === "SVT" ? "2 ou 3 activités" : `${MAX_NOTIONS} activités obligatoires`}</em></legend>
+              {parts ? (
+                <div className="esp-gen-parts">
+                  {parts.map((part) => (
+                    <div key={part.label} className="esp-gen-part">
+                      {part.label !== "Notions" && <p className="esp-gen-part-title">{part.label}</p>}
+                      {renderDetailPicker(part.label, part.notions[classe] || [], part.details ?? {})}
+                    </div>
+                  ))}
+                  {subject === "SVT" && <p className="esp-hint">La 1ʳᵉ activité cochée alimente la Restitution (Partie I), les suivantes le Problème (Partie II).</p>}
+                  {subject === "SVT" && (classe === "6e" || classe === "5e") && (() => {
+                    // SVT 6e/5e uniquement : type de Partie I choisi par l'enseignant. « Paragraphe » désactivé
+                    // si la 1ère activité cochée (convention : notions[0] -> Partie I) a une SA < 2.
+                    const firstPick = (selectedPicksByPart["Notions"] || [])[0];
+                    const sa1 = firstPick ? PCT_SA_NUMBER[classe]?.[firstPick.sa] ?? SVT_SA_NUMBER[classe]?.[firstPick.sa] : undefined;
+                    const paragrapheOk = sa1 !== undefined && sa1 >= 2;
+                    const options = [
+                      { id: "partie1_association", label: "Association" },
+                      { id: "partie1_lacunaire", label: "Test lacunaire" },
+                      { id: "partie1_paragraphe", label: "Paragraphe" },
+                    ];
                     return (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2">
-                        <p className="px-1 pb-1 text-xs font-medium text-slate-500 truncate" title={saChipLabel(classe, expandedSA)}>
-                          {saChipLabel(classe, expandedSA)} - choisis au moins une activité à évaluer
-                        </p>
-                        <div className="max-h-48 overflow-y-auto space-y-0.5">
-                          {groups.map((grp) => (
-                            <div key={grp.label}>
-                              <p className="px-2 pt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{grp.label}</p>
-                              {grp.items.map(renderItem)}
-                            </div>
-                          ))}
+                      <div className="esp-gen-part">
+                        <p className="esp-gen-part-title">Type de Partie I</p>
+                        <div className="esp-seg" role="radiogroup" aria-label="Type de Partie I">
+                          {options.map((opt) => {
+                            const disabled = opt.id === "partie1_paragraphe" && !paragrapheOk;
+                            const on = (partie1Choice ?? "partie1_association") === opt.id;
+                            return <button key={opt.id} type="button" role="radio" aria-checked={on} disabled={disabled} className={on ? "is-on" : ""} onClick={() => setPartie1Choice(opt.id)}
+                              title={disabled ? "Disponible à partir de la SA2 de la 1ère activité choisie" : undefined}>{opt.label}</button>;
+                          })}
                         </div>
                       </div>
                     );
                   })()}
-                  {picked.length > 0 && (
-                    <p className="text-xs text-amber-600 font-medium">
-                      {picked.length}/{MAX_NOTIONS} activité{picked.length > 1 ? "s" : ""} sélectionnée{picked.length > 1 ? "s" : ""}
-                      {picked.length >= MAX_NOTIONS && " (maximum atteint)"}
-                    </p>
-                  )}
                 </div>
-              );
-            })}
-            {subject === "SVT" && (classe === "6e" || classe === "5e") && (() => {
-              // SVT 6e/5e UNIQUEMENT (demande explicite utilisateur) : type de
-              // Partie I choisi par l'enseignant. "Paragraphe" désactivé si la
-              // 1ère activité cochée (convention : notions[0] -> Partie I,
-              // cf. picksToNotions/selectedPicksByPart["Notions"]) a un SA < 2.
-              const _firstPick = (selectedPicksByPart["Notions"] || [])[0];
-              const _sa1 = _firstPick ? PCT_SA_NUMBER[classe]?.[_firstPick.sa] ?? SVT_SA_NUMBER[classe]?.[_firstPick.sa] : undefined;
-              const _paragrapheOk = _sa1 !== undefined && _sa1 >= 2;
-              const _options: { id: string; label: string }[] = [
-                { id: "partie1_association", label: "Association" },
-                { id: "partie1_lacunaire", label: "Test lacunaire" },
-                { id: "partie1_paragraphe", label: "Paragraphe" },
-              ];
-              return (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Type de Partie I
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {_options.map((opt) => {
-                      const disabled = opt.id === "partie1_paragraphe" && !_paragrapheOk;
-                      const isSelected = (partie1Choice ?? "partie1_association") === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => setPartie1Choice(opt.id)}
-                          title={disabled ? "Disponible à partir de la SA2 de la 1ère activité choisie" : undefined}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                            isSelected
-                              ? "bg-indigo-600 text-white border-indigo-600"
-                              : disabled
-                              ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
+              ) : usesPoolDetail ? (
+                notions.length === 0
+                  ? <p className="esp-hint">Le programme officiel {subject} n’est pas encore intégré pour cette classe.</p>
+                  : renderDetailPicker("__pool__", notions, PCT_SA_DETAILS)
+              ) : (<>
+                {notions.length === 0 && <p className="esp-hint">Le programme officiel {subject} n’est pas encore intégré pour cette classe.</p>}
+                <div className="esp-sa-chips">
+                  {notions.map((n) => {
+                    const on = selectedNotions.includes(n);
+                    return <button key={n} type="button" className={cn("esp-sa", on && "has-picks is-open")} aria-pressed={on} disabled={!on && selectedNotions.length >= MAX_NOTIONS} onClick={() => toggleNotion(n)}>{n}</button>;
+                  })}
+                </div>
+                {selectedNotions.length > 0 && <p className={cn("esp-sa-count", selectedNotions.length >= MAX_NOTIONS && "is-ok")}>{selectedNotions.length}/{MAX_NOTIONS} notion{selectedNotions.length > 1 ? "s" : ""} sélectionnée{selectedNotions.length > 1 ? "s" : ""}</p>}
+              </>)}
+
+              {/* Figure — proposée uniquement pour une notion de géométrie (ou un schéma en SVT) */}
+              {showFigureOption && (
+                <label className="esp-toggle">
+                  <input type="checkbox" checked={figureRequise} onChange={(e) => setFigureRequise(e.target.checked)} /><span aria-hidden="true" />
+                  {isSvt ? "Ajouter un schéma ou un graphique à analyser" : "Ajouter une figure géométrique à l’énoncé"}
+                </label>
+              )}
+
+              {/* Partie Chimie optionnelle (PCT, 3e/4e/2nde C/D uniquement) */}
+              {showOptionalChimie && (<>
+                <label className="esp-toggle">
+                  <input type="checkbox" checked={includeChimie} onChange={(e) => {
+                    setIncludeChimie(e.target.checked);
+                    if (!e.target.checked) {
+                      setSelectedPicksByPart((prev) => ({ ...prev, "__chimie__": [] }));
+                      setExpandedSAByPart((prev) => ({ ...prev, "__chimie__": null }));
+                    }
+                  }} /><span aria-hidden="true" />
+                  Ajouter une partie Chimie (optionnelle)
+                </label>
+                {includeChimie && (
+                  <div className="esp-gen-part">
+                    <p className="esp-hint">Choisissez 2 ou 3 activités de Chimie : l’épreuve comportera une Partie Physique et une Partie Chimie séparées, comme en 1ère/Tle.</p>
+                    {renderDetailPicker("__chimie__", PCT_NOTIONS_CHIMIE[classe] || [], PCT_SA_DETAILS)}
                   </div>
-                </div>
-              );
-            })()}
-          </div>
-        ) : usesPoolDetail ? (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-            Notions au programme
-            <span className="text-xs text-slate-400 font-normal">
-              ({MAX_NOTIONS} activités obligatoires)
-            </span>
-          </label>
-          {notions.length === 0 ? (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              Le programme officiel {subject} n&apos;est pas encore intégré pour cette classe :
-              tape toi-même jusqu&apos;à {MAX_NOTIONS} notions à évaluer.
-            </p>
-          ) : (
-            renderDetailPicker("__pool__", notions, PCT_SA_DETAILS)
-          )}
-        </div>
-        ) : (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-            Notions au programme
-            <span className="text-xs text-slate-400 font-normal">
-              {mode === "exercice" ? "(1 ou 2)" : `(${MAX_NOTIONS} obligatoires)`}
-            </span>
-          </label>
-          {notions.length === 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              Le programme officiel {subject} n&apos;est pas encore intégré pour cette classe :
-              tape toi-même jusqu&apos;à {MAX_NOTIONS} notions à évaluer.
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
-            {notions.map((n) => {
-              const isSelected = selectedNotions.includes(n);
-              const isDisabled = !isSelected && selectedNotions.length >= MAX_NOTIONS;
-              return (
-                <button
-                  key={n}
-                  onClick={() => toggleNotion(n)}
-                  disabled={isDisabled}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                    isSelected
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : isDisabled
-                      ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                  )}
-                >
-                  {n}
-                </button>
-              );
-            })}
-          </div>
-          {selectedNotions.length > 0 && (
-            <p className="text-xs text-indigo-600 font-medium">
-              {selectedNotions.length}/{MAX_NOTIONS} notion{selectedNotions.length > 1 ? "s" : ""} sélectionnée{selectedNotions.length > 1 ? "s" : ""}
-              {selectedNotions.length >= MAX_NOTIONS && " (maximum atteint)"}
-            </p>
-          )}
-        </div>
-        )}
-
-        {/* Figure obligatoire — proposée uniquement pour une notion de géométrie */}
-        {showFigureOption && (
-          <label className="flex items-start gap-3 px-4 py-3 rounded-xl border border-indigo-100 bg-indigo-50/60 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={figureRequise}
-              onChange={(e) => setFigureRequise(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span className="text-sm text-slate-700">
-              {isSvt
-                ? "Aimeriez-vous avoir un schéma ou un graphique sur l'épreuve pour une bonne illustration ?"
-                : "Aimeriez-vous avoir une figure géométrique sur l'épreuve pour une bonne illustration ?"}
-              <span className="block text-xs text-slate-400 mt-0.5">
-                {isSvt
-                  ? "Ajoute un schéma annoté, une courbe, un histogramme ou un échiquier de croisement à analyser dans l'énoncé."
-                  : "Illustre le(s) problème(s) de géométrie dans l'énoncé et son corrigé."}
-              </span>
-            </span>
-          </label>
-        )}
-
-        {/* Partie Chimie optionnelle (PCT, 3e/4e/2nde C/D uniquement) */}
-        {showOptionalChimie && (
-          <div className="space-y-2 border border-amber-200 rounded-xl p-4 bg-amber-50/40">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeChimie}
-                onChange={(e) => {
-                  setIncludeChimie(e.target.checked);
-                  if (!e.target.checked) {
-                    setSelectedPicksByPart((prev) => ({ ...prev, "__chimie__": [] }));
-                    setExpandedSAByPart((prev) => ({ ...prev, "__chimie__": null }));
-                  }
-                }}
-                className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-              />
-              Ajouter une partie Chimie (optionnelle)
-            </label>
-            {includeChimie && (
-              <>
-                <p className="text-xs text-slate-500">
-                  Choisis 2 ou 3 activités de Chimie (dans les SA de ton choix) - l&apos;épreuve
-                  comportera alors une Partie Physique et une Partie Chimie séparées, comme en 1ère/Tle.
-                </p>
-                {renderDetailPicker("__chimie__", PCT_NOTIONS_CHIMIE[classe] || [], PCT_SA_DETAILS)}
-                {(selectedPicksByPart["__chimie__"] || []).length > 0
-                  && (selectedPicksByPart["__chimie__"] || []).length < 2 && (
-                  <p className="text-xs text-slate-400">(2 activités minimum)</p>
                 )}
-              </>
-            )}
-          </div>
-        )}
+              </>)}
+            </fieldset>
+          </>)}
 
-        {/* Submit */}
-        <button
-          onClick={() => {
-            if (parts) {
-              // Mode Exercice (Mathématiques, picker à 3 niveaux) : toujours
-              // 1 ou 2 activités, quelle que soit la matière -- jamais la
-              // règle épreuve de MIN_NOTIONS_BY_SUBJECT (ex. SVT 2-ou-3).
-              const minForSubject = mode === "exercice"
-                ? 1
-                : subject ? (MIN_NOTIONS_BY_SUBJECT[subject] ?? MAX_NOTIONS) : MAX_NOTIONS;
-              const missing = parts.filter((p) => {
-                const n = (selectedPicksByPart[p.label] || []).length;
-                return n < minForSubject || n > MAX_NOTIONS;
-              });
-              if (missing.length > 0) {
-                const countTxt = minForSubject === MAX_NOTIONS
-                  ? `exactement ${MAX_NOTIONS} activités`
-                  : `entre ${minForSubject} et ${MAX_NOTIONS} activités`;
-                toast.error(`Sélectionne ${countTxt} (dans les SA de ton choix) pour la partie ${missing[0].label}`);
-                return;
-              }
-            } else if (usesPoolDetail) {
-              if ((selectedPicksByPart["__pool__"] || []).length !== MAX_NOTIONS) {
-                toast.error(`Sélectionne exactement ${MAX_NOTIONS} activités (dans les SA de ton choix) avant de générer l'épreuve`);
-                return;
-              }
-            } else if (mode === "exercice") {
-              if (selectedNotions.length < 1 || selectedNotions.length > 2) {
-                toast.error("Sélectionne 1 ou 2 notions pour générer un exercice");
-                return;
-              }
-            } else if (selectedNotions.length !== MAX_NOTIONS) {
-              toast.error(`Sélectionne exactement ${MAX_NOTIONS} notions au programme avant de générer l'épreuve`);
-              return;
-            }
-            if (showOptionalChimie && includeChimie && (selectedPicksByPart["__chimie__"] || []).length < 2) {
-              toast.error("Sélectionne au moins 2 activités de Chimie (ou décoche la partie Chimie)");
-              return;
-            }
-            setShowEngineModal(true);
-          }}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
-        >
-          <Sparkles className="w-4 h-4" />
-          {mode === "exercice" ? "Générer l'exercice" : "Générer l'épreuve"}
-          <ArrowRight className="w-4 h-4 ml-1" />
-        </button>
-        </>
-        )}
+          <div className="esp-gen-submit">
+            <p className="esp-hint">{!mode ? "Choisissez le type de génération." : !subject ? "Choisissez la matière." : `${mode === "epreuve" ? "Épreuve complète" : "Exercice"} de ${subject}, classe de ${classe}${mode === "epreuve" ? `, ${formatDuree(duration)}` : ""}.`}</p>
+            <Button type="submit" className="esp-primary" disabled={!ready}><Sparkles /> {mode === "exercice" ? "Générer l’exercice" : "Générer l’épreuve"}</Button>
+          </div>
+        </form>
+
+        <aside className="esp-sheet-wrap">
+          <ZoomableDocument>
+            <div className="esp-sheet">
+              <div className="esp-sheet-head"><span>Mathiis · {mode === "exercice" ? "Exercice" : "Épreuve"}</span><span>{classe ? `Classe ${classe}` : "Programme 2026-2027"}</span></div>
+              <h2>{subject ?? "Votre épreuve"}</h2>
+              <p className="esp-sheet-meta">{classe ? `Classe : ${classe}${mode === "epreuve" ? ` · Durée : ${formatDuree(duration)}` : ""}` : "Choisissez le type, la matière puis la classe."}</p>
+              <div className="esp-sheet-body">
+                {chosen.length > 0 ? (
+                  <section className="esp-sheet-step">
+                    <h3>Notions retenues</h3>
+                    {chosen.map((n, i) => <p key={n} className="q">{i + 1}. {n}</p>)}
+                  </section>
+                ) : (
+                  <div className="esp-sheet-blank">{Array.from({ length: 7 }, (_, i) => <i key={i} style={{ width: `${90 - (i % 3) * 18}%` }} />)}<p>L’aperçu se remplit au fil de vos choix.</p></div>
+                )}
+              </div>
+            </div>
+          </ZoomableDocument>
+          <p className="esp-note">Le choix des notions suit le programme officiel 2026-2027. L’épreuve s’écrit ici dès que vous lancez la génération.</p>
+        </aside>
       </div>
 
-      {/* Modal de choix du moteur (Titan 1 / Titan 2) — s'ouvre au clic sur Générer */}
-      {showEngineModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowEngineModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Choisis ton moteur de génération</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                {availableMoteurs.length > 1
-                  ? "Deux moteurs, deux compromis entre vitesse et qualité."
-                  : "Titan 2 uniquement pour PCT pour le moment."}
-              </p>
-            </div>
-
-            <div className={cn("grid grid-cols-1 gap-3", availableMoteurs.length > 1 && "sm:grid-cols-2")}>
-              {availableMoteurs.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setEngine(m.id)}
-                  className={cn(
-                    "text-left rounded-xl border p-4 transition-all flex flex-col relative",
-                    engine === m.id
-                      ? "border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600"
-                      : "border-slate-200 hover:border-indigo-300"
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                          engine === m.id ? "border-indigo-600" : "border-slate-300"
-                        )}
-                      >
-                        {engine === m.id && (
-                          <span className="w-2 h-2 rounded-full bg-indigo-600" />
-                        )}
-                      </span>
-                      <span className="font-semibold text-slate-900">{m.nom}</span>
-                    </span>
-                    <span className="text-xs font-medium text-slate-500 whitespace-nowrap">{m.duree}</span>
-                  </div>
-                  <div className="text-sm text-slate-600 mt-0.5 ml-6">{m.desc}</div>
-                  {m.detail && (
-                    <div className="text-xs text-slate-400 mt-1 ml-6">{m.detail}</div>
-                  )}
-                  {m.avert && (
-                    <div className="mt-2 text-xs font-medium text-amber-600 ml-6">
-                      ⚠ Génération plus lente, patiente jusqu’à la fin.
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowEngineModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-all"
-              >
-                Annuler
-              </button>
-              <button
-                disabled={!engine}
-                onClick={() => {
-                  if (!engine) return;
-                  setShowEngineModal(false);
-                  handleSubmit(engine);
-                }}
-                className={cn(
-                  "flex-1 py-2.5 rounded-xl font-semibold transition-all",
-                  engine
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                )}
-              >
-                Lancer la génération
-              </button>
-            </div>
+      {/* Choix du moteur (Titan 1 / Titan 2) — s'ouvre au clic sur Générer */}
+      <Dialog open={showEngineModal} onOpenChange={setShowEngineModal}>
+        <DialogContent className="esp-dialog esp-dialog-wide">
+          <DialogHeader>
+            <DialogTitle>Choisissez votre moteur de génération</DialogTitle>
+            <DialogDescription>{availableMoteurs.length > 1 ? "Deux moteurs, deux compromis entre vitesse et qualité." : "Titan 2 uniquement pour PCT pour le moment."}</DialogDescription>
+          </DialogHeader>
+          <div className={cn("esp-choice-row", availableMoteurs.length > 1 ? "two" : "one")}>
+            {availableMoteurs.map((m) => (
+              <Choice key={m.id} selected={engine === m.id} onClick={() => setEngine(m.id)}>
+                <span>
+                  <strong>{m.nom} <em className="esp-engine-time">{m.duree}</em></strong>
+                  <small>{m.desc}</small>
+                  {m.detail && <small>{m.detail}</small>}
+                  {m.avert && <small className="esp-engine-warn">Génération plus lente, patientez jusqu’à la fin.</small>}
+                </span>
+              </Choice>
+            ))}
           </div>
-        </div>
-      )}
+          <div className="esp-dialog-actions">
+            <Button variant="framed" onClick={() => setShowEngineModal(false)}>Annuler</Button>
+            <Button className="esp-primary" disabled={!engine} onClick={() => { if (!engine) return; setShowEngineModal(false); handleSubmit(engine); }}>
+              <Sparkles /> Lancer la génération
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Mode Itératif — Admin seulement */}
+      {/* Mode itératif — administrateurs seulement */}
       {isAdmin && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="font-semibold text-amber-900">Mode itératif</h2>
-                <span className="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Admin</span>
-              </div>
-              <p className="text-sm text-amber-700 mb-4">
-                Interface interactive étape par étape avec validation manuelle de chaque exercice.
-              </p>
-              <a
-                href="/atelier/"
-                className="inline-flex items-center gap-2 bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-700 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Ouvrir l&apos;atelier interactif
-              </a>
-            </div>
-          </div>
-        </div>
+        <section className="esp-panel esp-admin">
+          <div><span className="esp-eyebrow">Administrateur</span><h2>Mode itératif</h2><p>Interface étape par étape avec validation manuelle de chaque exercice.</p></div>
+          <Button variant="framed" asChild><a href="/atelier/"><ExternalLink /> Ouvrir l’atelier interactif</a></Button>
+        </section>
       )}
     </div>
   );
