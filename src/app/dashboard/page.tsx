@@ -4,177 +4,116 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/auth";
 import { useExamStore } from "@/store/exams";
+import { useQuotaStore } from "@/store/quota";
 import { api } from "@/lib/api";
-import { formatDate, DIFFICULTY_LABELS, STATUS_LABELS } from "@/lib/utils";
-import { Sparkles, FileText, Plus, ArrowRight, Clock, TrendingUp, CheckCircle } from "lucide-react";
-
-const statusColors: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-600",
-  generating: "bg-amber-100 text-amber-700",
-  completed: "bg-emerald-100 text-emerald-700",
-  failed: "bg-red-100 text-red-600",
-};
+import { formatDate, STATUS_LABELS } from "@/lib/utils";
+import { PageHeader, StatusBadge } from "@/components/ui/kit";
+import { Sparkles, FileText, Plus, ArrowRight, Upload, CheckCheck, Loader } from "lucide-react";
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const isAdmin = user?.is_admin || user?.is_superuser;
   const { exams, fetchExams, loading } = useExamStore();
+  const { exams_used, exams_limit, is_unlimited, loaded: quotaLoaded, fetchQuota } = useQuotaStore();
   const [stats, setStats] = useState({ total: 0, completed: 0, generating: 0 });
 
   useEffect(() => {
     fetchExams({ page: 1 });
+    if (!quotaLoaded) fetchQuota();
     api.get("/exams/stats").then(({ data }) => setStats(data)).catch(() => {});
-  }, [fetchExams]);
+  }, [fetchExams, fetchQuota, quotaLoaded]);
 
   const recentExams = exams.slice(0, 5);
+  const firstName = user?.full_name?.split(" ")[0] || user?.username;
+  const hour = new Date().getHours();
+  const hello = hour < 5 || hour >= 18 ? "Bonsoir" : "Bonjour";
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            Bonjour, {user?.full_name?.split(" ")[0] || user?.username}
-          </h1>
-          <p className="text-slate-500 mt-1">Gérez et créez vos épreuves intelligentes</p>
-        </div>
-        <Link
-          href="/dashboard/generate"
-          className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-all hover:shadow-lg hover:shadow-indigo-200"
-        >
-          <Plus className="w-4 h-4" />
-          Nouvelle épreuve
-        </Link>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          icon={FileText}
-          label="Épreuves totales"
-          value={stats.total}
-          color="bg-indigo-50 text-indigo-600"
-        />
-        <StatCard
-          icon={CheckCircle}
-          label="Complétées"
-          value={stats.completed}
-          color="bg-emerald-50 text-emerald-600"
-        />
-        <StatCard
-          icon={Sparkles}
-          label="En génération"
-          value={stats.generating}
-          color="bg-amber-50 text-amber-600"
-        />
-      </div>
-
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link
-          href="/dashboard/generate"
-          className="group p-5 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-white hover:shadow-xl hover:shadow-indigo-200 transition-all"
-        >
-          <Sparkles className="w-8 h-8 mb-3 opacity-80" />
-          <div className="font-semibold text-lg">Générer une épreuve</div>
-          <div className="text-indigo-100 text-sm mt-1">Paramétrez et laissez l&apos;IA créer</div>
-          <ArrowRight className="w-5 h-5 mt-3 group-hover:translate-x-1 transition-transform" />
-        </Link>
-        <Link
-          href="/dashboard/documents"
-          className="group p-5 bg-white border border-slate-100 rounded-2xl hover:border-indigo-100 hover:shadow-lg hover:shadow-slate-100 transition-all"
-        >
-          <FileText className="w-8 h-8 mb-3 text-slate-400" />
-          <div className="font-semibold text-lg text-slate-900">Importer un document</div>
-          <div className="text-slate-500 text-sm mt-1">PDF, Word ou texte comme base</div>
-          <ArrowRight className="w-5 h-5 mt-3 text-slate-400 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
-
-      {/* Recent exams */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">Épreuves récentes</h2>
-          <Link href="/dashboard/exams" className="text-sm text-indigo-600 hover:underline font-medium">
-            Voir tout
+      <PageHeader
+        eyebrow="Tableau de bord"
+        title={firstName ? `${hello}, ${firstName}` : hello}
+        subtitle="Gérez et créez vos épreuves intelligentes."
+        actions={
+          <Link href="/dashboard/generate" className="btn-ink">
+            <Plus className="h-4 w-4" />Nouvelle épreuve
           </Link>
+        }
+      />
+
+      {/* Chiffres + quota, dans un seul cadre */}
+      <section aria-label="Vos chiffres" className="grid overflow-hidden rounded-2xl border-[1.5px] border-foreground bg-card sm:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)]">
+        <Stat icon={FileText} value={stats.total} label="Épreuves totales" />
+        <Stat icon={CheckCheck} value={stats.completed} label="Complétées" />
+        <Stat icon={Loader} value={stats.generating} label="En génération" />
+        <div className="flex flex-col justify-center gap-2 border-t border-foreground/10 p-5 sm:border-l sm:border-t-0">
+          <div className="flex justify-between text-sm font-medium">
+            <span>Quota d’épreuves</span>
+            <span className="font-mono text-xs">{is_unlimited ? "Illimité" : `${exams_used} / ${exams_limit}`}</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full border-[1.5px] border-foreground bg-background">
+            <div className="h-full bg-foreground transition-[width] duration-700" style={{ width: is_unlimited ? "100%" : `${Math.min(100, (exams_used / Math.max(1, exams_limit)) * 100)}%` }} />
+          </div>
+          <Link href="/dashboard/subscription" className="text-xs text-muted underline-offset-4 hover:underline">Voir mon abonnement</Link>
+        </div>
+      </section>
+
+      {/* Actions principales */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Link href="/dashboard/generate" className="group relative overflow-hidden rounded-2xl border-[1.5px] border-foreground bg-foreground p-6 text-background transition-[transform,box-shadow] hover:-translate-y-1 hover:shadow-[0_6px_0_oklch(14.5%_0_0/0.35)]">
+          <Sparkles className="mb-4 h-7 w-7" />
+          <div className="font-display text-xl font-bold">Générer une épreuve</div>
+          <p className="mt-1.5 text-sm opacity-70">Choisissez la matière, la classe et les notions : l’IA rédige l’épreuve et son corrigé.</p>
+          <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold">Commencer <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+        </Link>
+        <Link href="/dashboard/documents" className="group rounded-2xl border-[1.5px] border-foreground bg-card p-6 transition-[transform,box-shadow] hover:-translate-y-1 hover:shadow-[0_6px_0_var(--foreground)]">
+          <Upload className="mb-4 h-7 w-7" />
+          <div className="font-display text-xl font-bold">Importer un document</div>
+          <p className="mt-1.5 text-sm text-muted">Une épreuve en PDF, Word ou photo : recevez son corrigé détaillé.</p>
+          <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold">Importer <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+        </Link>
+      </div>
+
+      {/* Épreuves récentes */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold">Épreuves récentes</h2>
+          <Link href="/dashboard/exams" className="btn-framed btn-sm">Voir tout <ArrowRight className="h-3.5 w-3.5" /></Link>
         </div>
 
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 skeleton rounded-xl" />
-            ))}
-          </div>
+          <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-xl" />)}</div>
         ) : recentExams.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-slate-100">
-            <Sparkles className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-500">Aucune épreuve pour l&apos;instant</p>
-            <a
-              href="/atelier/"
-              className="mt-4 inline-flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:underline"
-            >
-              <Plus className="w-4 h-4" />
-              Créer ma première épreuve
-            </a>
+          <div className="rounded-2xl border-[1.5px] border-foreground bg-card px-5 py-14 text-center">
+            <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full border-[1.5px] border-dashed border-foreground"><Sparkles className="h-6 w-6" /></span>
+            <p className="font-semibold">Aucune épreuve pour l’instant</p>
+            <p className="mt-1 text-sm text-muted">Votre première épreuve apparaîtra ici dès qu’elle sera générée.</p>
+            <Link href="/dashboard/generate" className="btn-ink mt-5"><Plus className="h-4 w-4" />Créer ma première épreuve</Link>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            {recentExams.map((exam, idx) => (
-              <div
-                key={exam.id}
-                className={`flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors ${
-                  idx < recentExams.length - 1 ? "border-b border-slate-100" : ""
-                }`}
-              >
-                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-indigo-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-900 truncate">{exam.title}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {exam.subject} · {exam.num_questions} questions · {formatDate(exam.created_at)}
-                  </div>
-                </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[exam.status]}`}>
-                  {STATUS_LABELS[exam.status]}
+          <div className="overflow-hidden rounded-2xl border-[1.5px] border-foreground bg-card">
+            {recentExams.map((exam) => (
+              <Link key={exam.id} href={`/dashboard/exams/${exam.id}`} className="flex items-center gap-4 border-b border-foreground/10 p-4 transition-colors last:border-0 hover:bg-foreground/[0.03]">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border-[1.5px] border-foreground"><FileText className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{exam.title}</span>
+                  <span className="mt-0.5 block text-xs text-muted">{exam.subject}{exam.level ? ` · ${exam.level}` : ""} · {exam.num_questions} questions · {formatDate(exam.created_at)}</span>
                 </span>
-              </div>
+                <StatusBadge status={exam.status}>{STATUS_LABELS[exam.status]}</StatusBadge>
+              </Link>
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-  trend,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  color: string;
-  trend?: string;
-}) {
+function Stat({ icon: Icon, value, label }: { icon: React.ElementType; value: number; label: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        {trend && (
-          <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
-            {trend}
-          </span>
-        )}
-      </div>
-      <div className="text-3xl font-bold text-slate-900">{value}</div>
-      <div className="text-sm text-slate-500 mt-0.5">{label}</div>
+    <div className="border-t border-foreground/10 p-5 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0">
+      <Icon className="mb-3 h-5 w-5" />
+      <div className="font-display text-3xl font-bold tabular-nums">{value}</div>
+      <div className="mt-0.5 text-sm text-muted">{label}</div>
     </div>
   );
 }

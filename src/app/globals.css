@@ -16,7 +16,7 @@
   --secondary: oklch(95% 0 0);
   --primary: oklch(14.5% 0 0);
   --on-primary: oklch(99.5% 0 0);
-  --shadow-ink: 0 4px 0 oklch(14.5% 0 0);
+  --shadow-ink: 0 3px 0 oklch(14.5% 0 0);
 }
 
 @theme inline {
@@ -98,4 +98,19 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Boutons de l'identité : encre pleine pour l'action principale, cadre à l'encre pour le reste */
+@layer components {
+  .btn-ink {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-foreground px-5 text-sm font-semibold text-background transition-[transform,box-shadow] hover:-translate-y-px disabled:pointer-events-none disabled:opacity-40;
+    box-shadow: 0 3px 0 oklch(14.5% 0 0 / 0.3);
+  }
+  .btn-framed {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-full border-[1.5px] border-foreground bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background disabled:pointer-events-none disabled:opacity-40;
+    box-shadow: var(--shadow-ink);
+  }
+  .btn-framed:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--foreground); }
+  .btn-sm { @apply h-8 px-3 text-xs; }
+  .card-ink { @apply rounded-2xl border-[1.5px] border-foreground bg-card; }
 }

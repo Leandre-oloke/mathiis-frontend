@@ -8,6 +8,7 @@ import {
   CheckCircle, AlertCircle, Clock, BarChart2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { PageHeader } from "@/components/ui/kit";
 
 interface SubscriptionItem {
   id: string;
@@ -21,10 +22,10 @@ interface SubscriptionItem {
 }
 
 const statusConfig: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
-  completed: { label: "Payé", color: "text-emerald-700 bg-emerald-100", Icon: CheckCircle },
-  pending:   { label: "En attente", color: "text-amber-700 bg-amber-100", Icon: Clock },
-  failed:    { label: "Échoué", color: "text-red-700 bg-red-100", Icon: AlertCircle },
-  declined:  { label: "Refusé", color: "text-red-700 bg-red-100", Icon: AlertCircle },
+  completed: { label: "Payé", color: "bg-foreground text-background", Icon: CheckCircle },
+  pending:   { label: "En attente", color: "border border-dashed border-foreground", Icon: Clock },
+  failed:    { label: "Échoué", color: "text-red-700 bg-red-50 border border-red-600", Icon: AlertCircle },
+  declined:  { label: "Refusé", color: "text-red-700 bg-red-50 border border-red-600", Icon: AlertCircle },
 };
 
 function SubscriptionContent() {
@@ -58,18 +59,15 @@ function SubscriptionContent() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Abonnement & Quota</h1>
-        <p className="text-slate-500 mt-1">Gérez votre abonnement et consultez vos usages.</p>
-      </div>
+      <PageHeader eyebrow="Compte" title="Abonnement & quota" subtitle="Gérez votre abonnement et consultez vos usages." />
 
       {/* Quota actuel */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="card-ink p-6">
         <div className="flex items-center gap-2 mb-5">
-          <BarChart2 className="w-5 h-5 text-indigo-600" />
-          <h2 className="text-lg font-semibold text-slate-900">Votre quota actuel</h2>
+          <BarChart2 className="w-5 h-5" />
+          <h2 className="font-display text-lg font-bold">Votre quota actuel</h2>
           {is_unlimited && (
-            <span className="ml-auto text-xs font-semibold px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-full">
+            <span className="ml-auto text-xs font-semibold px-2.5 py-1 bg-foreground text-background rounded-full">
               Accès illimité (Admin)
             </span>
           )}
@@ -83,9 +81,9 @@ function SubscriptionContent() {
                 {is_unlimited ? "∞" : `${exams_used} / ${exams_limit}`}
               </span>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-3 overflow-hidden rounded-full border-[1.5px] border-foreground bg-background">
               <div
-                className="h-full rounded-full bg-indigo-500 transition-all"
+                className="h-full bg-foreground transition-all"
                 style={{ width: is_unlimited ? "10%" : `${pct(exams_used, exams_limit)}%` }}
               />
             </div>
@@ -103,9 +101,9 @@ function SubscriptionContent() {
                 {is_unlimited ? "∞" : `${corrections_used} / ${corrections_limit}`}
               </span>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-3 overflow-hidden rounded-full border-[1.5px] border-foreground bg-background">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all"
+                className="h-full bg-foreground transition-all"
                 style={{ width: is_unlimited ? "10%" : `${pct(corrections_used, corrections_limit)}%` }}
               />
             </div>
@@ -122,14 +120,14 @@ function SubscriptionContent() {
       {/* Historique */}
       {history.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Historique des paiements</h2>
+          <h2 className="font-display text-lg font-bold mb-4">Historique des paiements</h2>
 
           {/* Cartes (mobile / tablette) */}
           <div className="lg:hidden space-y-3">
             {history.map((s) => {
               const st = statusConfig[s.status] ?? statusConfig["pending"];
               return (
-                <div key={s.id} className="bg-white rounded-2xl border border-slate-200 p-4">
+                <div key={s.id} className="card-ink p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <span className="font-medium text-slate-900 capitalize">{s.plan}</span>
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
@@ -152,7 +150,7 @@ function SubscriptionContent() {
           </div>
 
           {/* Tableau (desktop) */}
-          <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="hidden lg:block card-ink overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>

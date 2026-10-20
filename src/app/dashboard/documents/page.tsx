@@ -6,8 +6,10 @@ import { api } from "@/lib/api";
 import { formatDate, formatFileSize } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
-  CloudUpload, File, Trash2, Loader2, X, GraduationCap, CheckCircle2, Download,
+  CloudUpload, File, Trash2, Loader2, X, GraduationCap, CheckCircle2, Download, FileText, FileType2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/kit";
 
 interface Document {
   id: string;
@@ -27,8 +29,8 @@ const CLASSES = [
   "Tle AB","Tle C","Tle D",
 ];
 
-const FILE_ICONS: Record<string, string> = {
-  pdf: "📄", docx: "📝", txt: "📃", markdown: "📋",
+const FILE_ICONS: Record<string, React.ElementType> = {
+  pdf: FileText, docx: FileType2, txt: File, markdown: File,
 };
 
 export default function DocumentsPage() {
@@ -38,6 +40,8 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Deleting is final: the first click asks for confirmation, the second one deletes.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Modal correction
   const [correctModal, setCorrectModal] = useState<{ doc: Document } | null>(null);
@@ -90,6 +94,8 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (confirmDelete !== id) { setConfirmDelete(id); return; }
+    setConfirmDelete(null);
     try {
       await api.delete(`/documents/${id}`);
       setDocuments((prev) => prev.filter((d) => d.id !== id));
@@ -228,24 +234,19 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Mes corrigés</h1>
-        <p className="text-slate-500 mt-1 text-sm">
-          Importez une épreuve : le modèle IA génère automatiquement le corrigé en PDF.
-        </p>
-      </div>
+      <PageHeader eyebrow="Correction" title="Mes corrigés" subtitle="Importez une épreuve : le modèle IA génère automatiquement le corrigé en PDF." />
 
       {/* Zone de dépôt */}
-      <div
+      <button
+        type="button"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => !uploading && fileRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-          dragOver
-            ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/40"
-        }`}
+        className={cn(
+          "grid w-full justify-items-center gap-3 rounded-[22px] border-2 border-dashed border-foreground bg-card px-5 py-12 text-center transition-[transform,box-shadow]",
+          dragOver ? "-translate-y-0.5 border-solid shadow-[0_5px_0_var(--foreground)]" : "hover:-translate-y-0.5 hover:border-solid hover:shadow-[0_5px_0_var(--foreground)]"
+        )}
       >
         <input
           ref={fileRef}
@@ -254,157 +255,105 @@ export default function DocumentsPage() {
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }}
         />
-        <div className="flex flex-col items-center gap-3">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${
-            dragOver ? "bg-indigo-100" : "bg-slate-100"
-          }`}>
-            {uploading
-              ? <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-              : <CloudUpload className={`w-8 h-8 ${dragOver ? "text-indigo-500" : "text-slate-400"}`} />
-            }
-          </div>
-          <div>
-            <p className="font-semibold text-slate-700">
-              {uploading ? "Import en cours…" : "Glissez-déposez ou cliquez pour importer"}
-            </p>
-            <p className="text-sm text-slate-400 mt-1">PDF, DOCX, TXT (max 5 Mo)</p>
-          </div>
-        </div>
-      </div>
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-foreground text-background">
+          {uploading ? <Loader2 className="h-7 w-7 animate-spin" /> : <CloudUpload className="h-7 w-7" />}
+        </span>
+        <span className="font-display text-lg font-bold">{uploading ? "Import en cours…" : dragOver ? "Déposez pour importer" : "Glissez-déposez ou cliquez pour importer"}</span>
+        <span className="flex flex-wrap items-center justify-center gap-1.5">
+          {["PDF", "DOCX", "TXT"].map((f) => <span key={f} className="rounded-md border border-foreground/25 px-2 py-0.5 font-mono text-[11px]">{f}</span>)}
+          <span className="ml-1 text-xs text-muted">max 5 Mo</span>
+        </span>
+      </button>
 
       {/* Liste des documents */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-20 bg-slate-100 animate-pulse rounded-2xl" />
-          ))}
-        </div>
+        <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-20 rounded-2xl" />)}</div>
       ) : documents.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
-          <File className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">Aucun document importé</p>
-          <p className="text-slate-400 text-sm mt-1">
-            Importez une épreuve en PDF ou DOCX pour obtenir son corrigé
-          </p>
+        <div className="card-ink px-5 py-14 text-center">
+          <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full border-[1.5px] border-dashed border-foreground"><File className="h-6 w-6" /></span>
+          <p className="font-semibold">Aucun document importé</p>
+          <p className="mt-1 text-sm text-muted">Importez une épreuve en PDF ou DOCX pour obtenir son corrigé.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4 hover:border-slate-200 transition-colors"
-            >
-              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                {FILE_ICONS[doc.file_type] || "📄"}
-              </div>
+        <div className="overflow-hidden rounded-2xl border-[1.5px] border-foreground bg-card">
+          {documents.map((doc) => {
+            const Icon = FILE_ICONS[doc.file_type] ?? FileText;
+            return (
+              <div key={doc.id} className="flex items-center gap-4 border-b border-foreground/10 p-4 last:border-0">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border-[1.5px] border-foreground"><Icon className="h-5 w-5" /></span>
 
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-slate-900 truncate">{doc.original_filename}</div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-slate-400 uppercase font-medium">{doc.file_type}</span>
-                  <span className="text-xs text-slate-400">{formatFileSize(doc.file_size)}</span>
-                  <span className="text-xs text-slate-400">{formatDate(doc.created_at)}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{doc.original_filename}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted">
+                    <span className="font-mono uppercase">{doc.file_type}</span>
+                    <span>{formatFileSize(doc.file_size)}</span>
+                    <span>{formatDate(doc.created_at)}</span>
+                    {doc.has_correction && <span className="inline-flex items-center gap-1 font-semibold text-foreground"><CheckCircle2 className="h-3.5 w-3.5" />Corrigé prêt</span>}
+                  </div>
                 </div>
+
+                {doc.has_correction ? (
+                  <button onClick={() => downloadCorrection(doc)} disabled={downloadingId === doc.id} className="btn-framed shrink-0">
+                    {downloadingId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Télécharger
+                  </button>
+                ) : (
+                  <button onClick={() => openCorrectModal(doc)} className="btn-ink h-10 shrink-0">
+                    <CheckCircle2 className="h-4 w-4" />Corriger l’épreuve
+                  </button>
+                )}
+
+                <button
+                  onClick={() => handleDelete(doc.id, doc.original_filename)}
+                  onBlur={() => setConfirmDelete((c) => (c === doc.id ? null : c))}
+                  aria-label={confirmDelete === doc.id ? `Confirmer la suppression de ${doc.original_filename}` : `Supprimer ${doc.original_filename}`}
+                  className={cn("shrink-0 rounded-lg p-2 text-xs font-semibold transition-colors",
+                    confirmDelete === doc.id ? "bg-red-600 px-3 text-white" : "text-muted hover:bg-red-50 hover:text-red-600")}
+                >
+                  {confirmDelete === doc.id ? "Supprimer ?" : <Trash2 className="h-4 w-4" />}
+                </button>
               </div>
-
-              {/* Bouton Corriger / Télécharger (corrigé déjà généré) */}
-              {doc.has_correction ? (
-                <button
-                  onClick={() => downloadCorrection(doc)}
-                  disabled={downloadingId === doc.id}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors flex-shrink-0 disabled:opacity-60"
-                >
-                  {downloadingId === doc.id
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Download className="w-4 h-4" />}
-                  Télécharger
-                </button>
-              ) : (
-                <button
-                  onClick={() => openCorrectModal(doc)}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors flex-shrink-0"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Corriger l&apos;épreuve
-                </button>
-              )}
-
-              <button
-                onClick={() => handleDelete(doc.id, doc.original_filename)}
-                className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Modal correction */}
       {correctModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="font-bold text-slate-900 text-lg">Corriger l&apos;épreuve</h2>
-                <p className="text-slate-500 text-sm mt-0.5 truncate max-w-xs">
-                  {correctModal.doc.original_filename}
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="correct-title">
+          <div className="w-full max-w-md rounded-2xl border-[1.5px] border-foreground bg-card p-6 shadow-[0_6px_0_var(--foreground)]">
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 id="correct-title" className="font-display text-xl font-bold">Corriger l’épreuve</h2>
+                <p className="mt-0.5 max-w-xs truncate text-sm text-muted">{correctModal.doc.original_filename}</p>
               </div>
-              <button
-                onClick={() => setCorrectModal(null)}
-                disabled={correcting}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40"
-              >
-                <X className="w-5 h-5" />
+              <button onClick={() => setCorrectModal(null)} disabled={correcting} aria-label="Fermer" className="rounded-lg p-2 hover:bg-foreground/5 disabled:opacity-40">
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <GraduationCap className="inline w-3.5 h-3.5 mr-1 text-slate-400" />
-                  Classe de l&apos;épreuve *
-                </label>
-                <select
-                  value={correctClass}
-                  onChange={(e) => setCorrectClass(e.target.value)}
-                  disabled={correcting}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                >
-                  {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+            <label className="mb-1.5 block text-sm font-semibold" htmlFor="correct-class">
+              <GraduationCap className="mr-1 inline h-3.5 w-3.5" />Classe de l’épreuve
+            </label>
+            <select
+              id="correct-class"
+              value={correctClass}
+              onChange={(e) => setCorrectClass(e.target.value)}
+              disabled={correcting}
+              className="h-11 w-full rounded-xl border-[1.5px] border-foreground bg-background px-3 text-sm outline-none focus:shadow-[var(--shadow-ink)] disabled:opacity-50"
+            >
+              {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
 
-              {/* Info */}
-              <div className="p-3 bg-emerald-50 rounded-xl flex gap-2">
-                <Download className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-emerald-700 leading-relaxed">
-                  Le modèle IA va analyser votre épreuve et générer un corrigé complet
-                  question par question. Le PDF sera téléchargé automatiquement.
-                  <br /><span className="font-medium">Durée estimée : 1 à 3 minutes.</span>
-                </p>
-              </div>
-            </div>
+            <p className="mt-4 flex gap-2 rounded-xl bg-foreground/[0.05] p-3 text-xs leading-relaxed">
+              <Download className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Le modèle IA analyse votre épreuve et génère un corrigé complet, question par question. Le PDF se télécharge automatiquement. <strong>Durée estimée : 1 à 3 minutes.</strong></span>
+            </p>
 
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => setCorrectModal(null)}
-                disabled={correcting}
-                className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-40"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleCorrect}
-                disabled={correcting}
-                className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60"
-              >
-                {correcting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" />Correction en cours…</>
-                ) : (
-                  <><CheckCircle2 className="w-4 h-4" />Générer le corrigé</>
-                )}
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setCorrectModal(null)} disabled={correcting} className="btn-framed flex-1">Annuler</button>
+              <button onClick={handleCorrect} disabled={correcting} className="btn-ink flex-1">
+                {correcting ? <><Loader2 className="h-4 w-4 animate-spin" />Correction en cours…</> : <><CheckCircle2 className="h-4 w-4" />Générer le corrigé</>}
               </button>
             </div>
           </div>

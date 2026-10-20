@@ -10,13 +10,28 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { cn } from "@/lib/utils";
+import { PageHeader, StatusBadge } from "@/components/ui/kit";
 
-const statusConfig: Record<string, { color: string; icon: React.ElementType; label: string }> = {
-  pending: { color: "bg-slate-100 text-slate-600", icon: Clock, label: "En attente" },
-  generating: { color: "bg-amber-100 text-amber-700", icon: Loader2, label: "Génération..." },
-  completed: { color: "bg-emerald-100 text-emerald-700", icon: CheckCircle, label: "Terminé" },
-  failed: { color: "bg-red-100 text-red-600", icon: AlertCircle, label: "Échoué" },
+const statusConfig: Record<string, { icon: React.ElementType; label: string }> = {
+  pending: { icon: Clock, label: "En attente" },
+  generating: { icon: Loader2, label: "Génération…" },
+  completed: { icon: CheckCircle, label: "Terminé" },
+  failed: { icon: AlertCircle, label: "Échoué" },
 };
+
+const ENGINE_BADGE: Record<string, { icon: React.ElementType; label: string }> = {
+  premium: { icon: Zap, label: "Premium" },
+  standard: { icon: Layers, label: "Standard" },
+  free: { icon: Zap, label: "Basique" },
+};
+
+const FILTERS = [
+  { value: "", label: "Toutes" },
+  { value: "completed", label: "Terminées" },
+  { value: "generating", label: "En génération" },
+  { value: "pending", label: "En attente" },
+  { value: "failed", label: "Échouées" },
+];
 
 export default function ExamsPage() {
   const { exams, total, page, pages, fetchExams, deleteExam, downloadPdf, downloadDocx, refreshExam, loading } =
@@ -26,6 +41,8 @@ export default function ExamsPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadingDocx, setDownloadingDocx] = useState<string | null>(null);
+  // Deleting is final: the first click asks for confirmation, the second one deletes.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExams({ page: 1, search, status: statusFilter });
@@ -47,6 +64,8 @@ export default function ExamsPage() {
   }, [exams, refreshExam]);
 
   const handleDelete = async (id: string) => {
+    if (confirmDelete !== id) { setConfirmDelete(id); return; }
+    setConfirmDelete(null);
     setDeleting(id);
     try {
       await deleteExam(id);
@@ -82,149 +101,87 @@ export default function ExamsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mes épreuves</h1>
-          <p className="text-slate-500 mt-1">{total} épreuve{total > 1 ? "s" : ""} au total</p>
-        </div>
-        <Link
-          href="/dashboard/generate"
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Nouvelle épreuve
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Bibliothèque"
+        title="Mes épreuves"
+        subtitle={`${total} épreuve${total > 1 ? "s" : ""} au total`}
+        actions={<Link href="/dashboard/generate" className="btn-ink"><Plus className="h-4 w-4" />Nouvelle épreuve</Link>}
+      />
 
       {/* Filtres */}
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-56">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="relative flex h-11 min-w-56 flex-1 items-center rounded-xl border-[1.5px] border-foreground bg-card focus-within:shadow-[var(--shadow-ink)]">
+          <Search className="absolute left-3.5 h-4 w-4 text-muted" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher une épreuve..."
-            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            placeholder="Rechercher une épreuve…"
+            aria-label="Rechercher une épreuve"
+            className="h-full w-full bg-transparent pl-10 pr-4 text-sm outline-none"
           />
+        </label>
+        <div role="radiogroup" aria-label="Statut" className="flex flex-wrap gap-1 rounded-full border-[1.5px] border-foreground bg-card p-1">
+          {FILTERS.map((f) => (
+            <button key={f.value} role="radio" aria-checked={statusFilter === f.value} onClick={() => setStatusFilter(f.value)}
+              className={cn("rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors", statusFilter === f.value ? "bg-foreground text-background" : "hover:bg-foreground/5")}>
+              {f.label}
+            </button>
+          ))}
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-        >
-          <option value="">Tous les statuts</option>
-          <option value="completed">Terminé</option>
-          <option value="generating">En génération</option>
-          <option value="pending">En attente</option>
-          <option value="failed">Échoué</option>
-        </select>
       </div>
 
       {/* Liste */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 skeleton rounded-2xl" />
-          ))}
-        </div>
+        <div className="space-y-3">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-24 rounded-2xl" />)}</div>
       ) : exams.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
-          <Sparkles className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-600 font-medium">Aucune épreuve trouvée</p>
-          <p className="text-slate-400 text-sm mt-1">Essayez de modifier votre recherche ou créez une nouvelle épreuve</p>
+        <div className="card-ink px-5 py-16 text-center">
+          <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full border-[1.5px] border-dashed border-foreground"><Sparkles className="h-6 w-6" /></span>
+          <p className="font-semibold">Aucune épreuve trouvée</p>
+          <p className="mt-1 text-sm text-muted">{search || statusFilter ? "Essayez un autre mot ou un autre statut." : "Créez votre première épreuve : elle sera rangée ici automatiquement."}</p>
+          {!search && !statusFilter && <Link href="/dashboard/generate" className="btn-ink mt-5"><Plus className="h-4 w-4" />Générer une épreuve</Link>}
         </div>
       ) : (
         <div className="space-y-3">
           {exams.map((exam) => {
             const status = statusConfig[exam.status];
             const StatusIcon = status.icon;
+            const engine = ENGINE_BADGE[exam.engine] ?? ENGINE_BADGE.free;
             return (
-              <div
-                key={exam.id}
-                className="bg-white rounded-2xl border border-slate-100 p-5 hover:border-indigo-100 hover:shadow-sm transition-all"
-              >
+              <article key={exam.id} className="card-ink p-5 transition-shadow hover:shadow-[0_4px_0_var(--foreground)]">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <FileText className="w-5 h-5 text-indigo-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-900">{exam.title}</h3>
-                          {exam.engine === "premium" ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                              <Zap className="w-3 h-3" />Premium
-                            </span>
-                          ) : exam.engine === "standard" ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                              <Layers className="w-3 h-3" />Standard
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                              <Zap className="w-3 h-3" />Basique
-                            </span>
-                          )}
+                  <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl border-[1.5px] border-foreground"><FileText className="h-5 w-5" /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link href={`/dashboard/exams/${exam.id}`} className="font-display text-lg font-bold underline-offset-4 hover:underline">{exam.title}</Link>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-foreground/25 px-2 py-0.5 text-[11px] font-semibold"><engine.icon className="h-3 w-3" />{engine.label}</span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                          <span className="text-sm text-slate-500">{exam.subject}</span>
-                          {exam.level && <span className="text-sm text-slate-400">· {exam.level}</span>}
-                          {exam.duration_minutes && (
-                            <span className="text-sm text-slate-400">· {exam.duration_minutes} min</span>
-                          )}
-                          <span className="text-xs text-slate-300">· {formatDate(exam.created_at)}</span>
-                        </div>
+                        <p className="mt-1 text-sm text-muted">
+                          {exam.subject}{exam.level && ` · ${exam.level}`}{exam.duration_minutes ? ` · ${exam.duration_minutes} min` : ""} · {formatDate(exam.created_at)}
+                          {exam.generation_time ? ` · généré en ${exam.generation_time.toFixed(1)} s` : ""}
+                        </p>
                       </div>
-                      <span className={cn("flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full flex-shrink-0", status.color)}>
-                        <StatusIcon className={cn("w-3 h-3", exam.status === "generating" && "animate-spin")} />
-                        {status.label}
-                      </span>
+                      <StatusBadge status={exam.status}>
+                        <span className="inline-flex items-center gap-1.5"><StatusIcon className={cn("h-3 w-3", exam.status === "generating" && "animate-spin")} />{status.label}</span>
+                      </StatusBadge>
                     </div>
 
-                    {exam.generation_time && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        Généré en {exam.generation_time.toFixed(1)}s
-                      </p>
-                    )}
-
                     {exam.status === "completed" && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {/* PDF épreuve */}
-                        <button
-                          onClick={() => handleDownload(exam.id, false)}
-                          disabled={downloading === exam.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors disabled:opacity-60"
-                        >
-                          {downloading === exam.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                          PDF
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button onClick={() => handleDownload(exam.id, false)} disabled={downloading === exam.id} className="btn-framed btn-sm">
+                          {downloading === exam.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}PDF
                         </button>
-                        {/* PDF corrigé */}
-                        <button
-                          onClick={() => handleDownload(exam.id, true)}
-                          disabled={downloading === exam.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-medium hover:bg-emerald-100 transition-colors disabled:opacity-60"
-                        >
-                          <Download className="w-3 h-3" />
-                          PDF corrigé
+                        <button onClick={() => handleDownload(exam.id, true)} disabled={downloading === exam.id} className="btn-framed btn-sm">
+                          <Download className="h-3 w-3" />PDF corrigé
                         </button>
-                        {/* Word épreuve — Standard et Premium */}
                         {(exam.engine === "standard" || exam.engine === "premium") && (
                           <>
-                            <button
-                              onClick={() => handleDownloadDocx(exam.id, false)}
-                              disabled={downloadingDocx === exam.id}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors disabled:opacity-60"
-                            >
-                              {downloadingDocx === exam.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileType2 className="w-3 h-3" />}
-                              Word
+                            <button onClick={() => handleDownloadDocx(exam.id, false)} disabled={downloadingDocx === exam.id} className="btn-framed btn-sm">
+                              {downloadingDocx === exam.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileType2 className="h-3 w-3" />}Word
                             </button>
-                            <button
-                              onClick={() => handleDownloadDocx(exam.id, true)}
-                              disabled={downloadingDocx === exam.id}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-xs font-medium hover:bg-teal-100 transition-colors disabled:opacity-60"
-                            >
-                              <FileType2 className="w-3 h-3" />
-                              Word corrigé
+                            <button onClick={() => handleDownloadDocx(exam.id, true)} disabled={downloadingDocx === exam.id} className="btn-framed btn-sm">
+                              <FileType2 className="h-3 w-3" />Word corrigé
                             </button>
                           </>
                         )}
@@ -233,17 +190,16 @@ export default function ExamsPage() {
                   </div>
                   <button
                     onClick={() => handleDelete(exam.id)}
+                    onBlur={() => setConfirmDelete((c) => (c === exam.id ? null : c))}
                     disabled={deleting === exam.id}
-                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                    aria-label={confirmDelete === exam.id ? `Confirmer la suppression de ${exam.title}` : `Supprimer ${exam.title}`}
+                    className={cn("shrink-0 rounded-lg p-2 text-xs font-semibold transition-colors",
+                      confirmDelete === exam.id ? "bg-red-600 px-3 text-white" : "text-muted hover:bg-red-50 hover:text-red-600")}
                   >
-                    {deleting === exam.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
+                    {deleting === exam.id ? <Loader2 className="h-4 w-4 animate-spin" /> : confirmDelete === exam.id ? "Supprimer ?" : <Trash2 className="h-4 w-4" />}
                   </button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
@@ -251,22 +207,19 @@ export default function ExamsPage() {
 
       {/* Pagination */}
       {pages > 1 && (
-        <div className="flex justify-center gap-2">
+        <nav aria-label="Pages" className="flex justify-center gap-2">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
             <button
               key={p}
               onClick={() => fetchExams({ page: p, search, status: statusFilter })}
-              className={cn(
-                "w-9 h-9 rounded-xl text-sm font-medium transition-colors",
-                p === page
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white border border-slate-200 text-slate-600 hover:border-indigo-300"
-              )}
+              aria-current={p === page ? "page" : undefined}
+              className={cn("h-9 w-9 rounded-xl border-[1.5px] border-foreground text-sm font-semibold transition-colors",
+                p === page ? "bg-foreground text-background" : "bg-card hover:bg-foreground/5")}
             >
               {p}
             </button>
           ))}
-        </div>
+        </nav>
       )}
     </div>
   );

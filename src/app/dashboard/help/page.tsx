@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
-import { ChevronDown, Loader2, Send, HelpCircle } from "lucide-react";
+import { ChevronDown, Loader2, Send, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/kit";
 import { cn } from "@/lib/utils";
 
 interface FaqItem {
@@ -139,29 +140,35 @@ const FAQ: FaqCategory[] = [
   },
 ];
 
-function FaqAccordionItem({ item }: { item: FaqItem }) {
+function FaqAccordionItem({ item, forceOpen }: { item: FaqItem; forceOpen: boolean }) {
   const [open, setOpen] = useState(false);
+  const shown = open || forceOpen;
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
+    <div className="border-t border-foreground/10 first:border-t-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-4 py-3.5 text-left"
+        aria-expanded={shown}
+        className="flex w-full items-center justify-between gap-4 py-4 text-left"
       >
-        <span className="text-sm font-medium text-slate-800">{item.question}</span>
-        <ChevronDown
-          className={cn("w-4 h-4 text-slate-400 flex-shrink-0 transition-transform", open && "rotate-180")}
-        />
+        <span className={cn("text-[15px]", shown ? "font-semibold" : "font-medium")}>{item.question}</span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", shown && "rotate-180")} />
       </button>
-      {open && (
-        <p className="pb-4 text-sm text-slate-500 leading-relaxed">{item.answer}</p>
-      )}
+      {shown && <p className="max-w-[70ch] pb-4 text-sm leading-relaxed text-muted">{item.answer}</p>}
     </div>
   );
 }
 
+// Accent-insensitive search ("epreuve" finds "épreuve").
+const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
 export default function HelpPage() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const q = fold(query.trim());
+  const groups = FAQ.map((c) => ({ ...c, items: c.items.filter((i) => !q || fold(`${i.question} ${i.answer}`).includes(q)) })).filter((c) => c.items.length);
+  const count = groups.reduce((n, g) => n + g.items.length, 0);
 
   const handleSend = async () => {
     if (message.trim().length < 5) {
@@ -182,52 +189,42 @@ export default function HelpPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <HelpCircle className="w-6 h-6 text-indigo-600" />
-          Aide
-        </h1>
-        <p className="text-slate-500 mt-1">
-          Questions fréquentes et moyen de nous contacter directement.
-        </p>
-      </div>
+      <PageHeader eyebrow="Aide" title="Questions fréquentes" subtitle="Trouvez une réponse en quelques secondes, ou écrivez-nous directement." />
 
-      <div className="space-y-6">
-        {FAQ.map((category) => (
-          <div key={category.title} className="bg-white rounded-2xl border border-slate-100 p-6">
-            <h2 className="font-semibold text-slate-900 mb-2">{category.title}</h2>
-            <div>
-              {category.items.map((item) => (
-                <FaqAccordionItem key={item.question} item={item} />
-              ))}
-            </div>
-          </div>
+      <label className="relative flex h-13 items-center rounded-xl border-[1.5px] border-foreground bg-card focus-within:shadow-[var(--shadow-ink)]">
+        <Search className="absolute left-4 h-4 w-4 text-muted" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher : PDF, quota, mot de passe…" aria-label="Rechercher dans l’aide" className="h-full w-full bg-transparent pl-11 pr-4 text-[15px] outline-none" />
+      </label>
+      {query && <p className="text-sm text-muted">{count} réponse{count > 1 ? "s" : ""} pour « {query} »</p>}
+
+      <div className="space-y-4">
+        {groups.map((category) => (
+          <section key={category.title} className="card-ink px-6 pb-2 pt-5">
+            <h2 className="mb-1 font-display text-lg font-bold">{category.title}</h2>
+            {category.items.map((item) => <FaqAccordionItem key={item.question} item={item} forceOpen={!!q} />)}
+          </section>
         ))}
+        {groups.length === 0 && <p className="card-ink p-6 text-sm text-muted">Aucune réponse ne correspond. Posez votre question ci-dessous : nous vous répondrons.</p>}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4">
+      <section className="card-ink space-y-4 p-6">
         <div>
-          <h2 className="font-semibold text-slate-900">Nous contacter</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Une question, un bug à signaler, une suggestion ? Écrivez-nous directement.
-          </p>
+          <h2 className="font-display text-xl font-bold">Nous contacter</h2>
+          <p className="mt-1 text-sm text-muted">Une question, un bug à signaler, une suggestion ? Écrivez-nous directement.</p>
         </div>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
-          placeholder="Votre message..."
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          placeholder="Votre message…"
+          aria-label="Votre message"
+          className="w-full rounded-xl border-[1.5px] border-foreground bg-background px-3.5 py-3 text-sm outline-none focus:shadow-[var(--shadow-ink)]"
         />
-        <button
-          onClick={handleSend}
-          disabled={sending}
-          className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60"
-        >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        <button onClick={handleSend} disabled={sending} className="btn-ink">
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Envoyer
         </button>
-      </div>
+      </section>
     </div>
   );
 }

@@ -1751,7 +1751,7 @@ export default function GeneratePage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Génération en cours</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Génération en cours</h1>
             <p className="text-slate-500 mt-1 text-sm">{subject} · Classe {classe}</p>
           </div>
           {phase === "done" && (
@@ -1762,7 +1762,7 @@ export default function GeneratePage() {
         </div>
 
         {/* Barre de progression par étape */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+        <div className="card-ink p-5 space-y-4">
           <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
             <span>{phase === "done" ? "Génération terminée" : phase === "error" ? "Erreur"
               : doneCount >= STEPS.length ? "Finalisation (figures, contextes et tâches), encore quelques minutes..."
@@ -1813,7 +1813,7 @@ export default function GeneratePage() {
         {phase !== "error" && (
           <div
             ref={previewRef}
-            className="bg-white rounded-2xl border border-slate-100 p-6 h-96 overflow-y-auto font-mono text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"
+            className="card-ink p-6 h-96 overflow-y-auto font-mono text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"
           >
             {streamText || <span className="text-slate-300 italic">L&apos;épreuve s&apos;affiche ici…</span>}
             {phase === "streaming" && (
@@ -1894,13 +1894,13 @@ export default function GeneratePage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Générer une épreuve</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Générer une épreuve</h1>
         <p className="text-slate-500 mt-1">
           Configurez les paramètres : la génération s&apos;affiche en direct.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-6">
+      <div className="card-ink p-6 space-y-6">
         {isAdmin && (
           <>
             <div className="flex items-center gap-3">
@@ -2004,7 +2004,7 @@ export default function GeneratePage() {
             <select
               value={classe}
               onChange={(e) => handleClasseChange(e.target.value)}
-              className="w-full appearance-none px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white pr-10"
+              className="w-full appearance-none px-4 py-2.5 border-[1.5px] border-foreground rounded-xl text-sm text-slate-800 focus:outline-none focus:shadow-[var(--shadow-ink)] bg-white pr-10"
             >
               {CLASSES.map((c) => (
                 <option key={c} value={c}>{c}</option>
