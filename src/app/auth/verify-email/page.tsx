@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Sparkles, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 
 type Status = "loading" | "success" | "error";
@@ -35,32 +35,21 @@ function VerifyEmailContent() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-slate-900 text-xl">Mathiis</span>
-          </Link>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 text-center">
+    <div className="rounded-2xl border-[1.5px] border-foreground bg-card p-6 shadow-[6px_6px_0_var(--foreground)] sm:p-8 text-center">
           {status === "loading" && (
             <>
-              <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
-              <p className="text-slate-500 text-sm">Vérification en cours...</p>
+              <Loader2 className="w-10 h-10 text-foreground animate-spin mx-auto mb-4" />
+              <p className="text-muted text-sm">Vérification en cours...</p>
             </>
           )}
           {status === "success" && (
             <>
-              <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto mb-4" />
-              <h1 className="text-xl font-bold text-slate-900 mb-2">Email vérifié !</h1>
-              <p className="text-slate-500 text-sm mb-6">{message}</p>
+              <CheckCircle2 className="w-10 h-10 text-foreground mx-auto mb-4" />
+              <h1 className="font-display text-2xl font-bold tracking-tight mb-2">Email vérifié !</h1>
+              <p className="text-muted text-sm mb-6">{message}</p>
               <Link
                 href="/auth/login"
-                className="inline-block w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                className="btn-ink w-full"
               >
                 Se connecter
               </Link>
@@ -68,17 +57,15 @@ function VerifyEmailContent() {
           )}
           {status === "error" && (
             <>
-              <XCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
-              <h1 className="text-xl font-bold text-slate-900 mb-2">Échec de la vérification</h1>
-              <p className="text-slate-500 text-sm mb-6">{message}</p>
-              <Link href="/auth/login" className="text-indigo-600 font-medium hover:underline text-sm">
+              <XCircle className="w-10 h-10 text-red-600 mx-auto mb-4" />
+              <h1 className="font-display text-2xl font-bold tracking-tight mb-2">Échec de la vérification</h1>
+              <p className="text-muted text-sm mb-6">{message}</p>
+              <Link href="/auth/login" className="font-semibold text-foreground underline underline-offset-4 text-sm">
                 Retour à la connexion
               </Link>
             </>
           )}
         </div>
-      </div>
-    </div>
   );
 }
 

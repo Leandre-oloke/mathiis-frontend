@@ -77,9 +77,9 @@ export default function GoogleButton() {
     <div className="space-y-4">
       <div ref={divRef} className="flex justify-center" />
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs text-slate-400">ou</span>
-        <div className="h-px flex-1 bg-slate-200" />
+        <div className="h-px flex-1 bg-foreground/15" />
+        <span className="font-mono text-[11px] uppercase tracking-widest text-muted">ou</span>
+        <div className="h-px flex-1 bg-foreground/15" />
       </div>
     </div>
   );
