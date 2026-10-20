@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -13,6 +13,24 @@ export function trimUnclosedMath(text: string) {
   const inline = (text.replace(/\$\$/g, "").match(/(?<!\\)\$/g) ?? []).length;
   if (inline % 2 === 1) return text.slice(0, text.lastIndexOf("$"));
   return text;
+}
+
+type HastNode = { type: string; tagName?: string; properties?: Record<string, unknown>; children?: HastNode[] };
+
+/** Numbers the items of every numbered list in document order (data-question), so question numbers stay
+ *  continuous across the whole exam even when a list is interrupted by text or a figure (Problème I: 1-5, II: 6-10…).
+ *  Bulleted-list items are left alone. Done on the tree, not during rendering, so it is deterministic. */
+export function rehypeNumberQuestions() {
+  return (tree: HastNode) => {
+    let n = 0;
+    const walk = (node: HastNode) => {
+      for (const child of node.children ?? []) {
+        if (node.tagName === "ol" && child.tagName === "li") child.properties = { ...child.properties, dataQuestion: ++n };
+        walk(child);
+      }
+    };
+    walk(tree);
+  };
 }
 
 const textOf = (node: ReactNode): string =>
@@ -45,30 +63,26 @@ const baseComponents: Components = {
       : <code className="rounded bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-sm">{children}</code>,
 };
 
+const components: Components = {
+  ...baseComponents,
+  ol: ({ children }) => <div className="mb-3 space-y-1">{children}</div>,
+  li: ({ children, node }) => {
+    const number = node?.properties?.dataQuestion;
+    if (number === undefined) return <li>{children}</li>;
+    return (
+      <div className="flex gap-1.5 leading-7">
+        <span className="shrink-0 font-semibold">{String(number)}.</span>
+        <span>{children}</span>
+      </div>
+    );
+  },
+};
+
 /** Renders an exam written by the model: Markdown + LaTeX (KaTeX) + [FIGURE] drawings, on a paper-like sheet. */
 export function ExamMarkdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
-  // Question numbers are written as text (not the browser's <ol> counter) so they stay continuous across the
-  // whole document even when a question is interrupted by text or lettered sub-parts (Problème I: 1-5, II: 6-10…).
-  const questionCounter = useRef(0);
-  questionCounter.current = 0;
-
-  const components: Components = {
-    ...baseComponents,
-    ol: ({ children }) => <div className="mb-3 space-y-1">{children}</div>,
-    li: ({ children }) => {
-      questionCounter.current += 1;
-      return (
-        <div className="flex gap-1.5 leading-7">
-          <span className="shrink-0 font-semibold">{questionCounter.current}.</span>
-          <span>{children}</span>
-        </div>
-      );
-    },
-  };
-
   return (
     <div className="exam-content font-paper text-[15px]">
-      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeNumberQuestions, rehypeKatex]} components={components}>
         {streaming ? trimUnclosedMath(text) : text}
       </ReactMarkdown>
     </div>
