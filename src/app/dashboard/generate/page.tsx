@@ -2397,7 +2397,7 @@ export default function GeneratePage() {
                   )}
                   {m.avert && (
                     <div className="mt-2 text-xs font-medium text-amber-600 ml-6">
-                      ⚠ Génération plus lente, patiente jusqu'à la fin.
+                      ⚠ Génération plus lente, patiente jusqu’à la fin.
                     </div>
                   )}
                 </button>

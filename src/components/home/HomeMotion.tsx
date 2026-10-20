@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { CheckCheck, FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import "./home.css";
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REDUCED = "(prefers-reduced-motion: reduce)";
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia(REDUCED).matches;
+
+/** Live "reduce motion" preference; assumed on during server rendering so nothing animates before hydration. */
+function useReducedMotion() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(REDUCED);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    reducedMotion,
+    () => true,
+  );
+}
 
 /** A word that slides out and is replaced by the next one. All words share one grid cell, so the line never jumps. */
 export function RotatingWord({ words, interval = 2400 }: { words: readonly string[]; interval?: number }) {
@@ -27,8 +41,7 @@ export function RotatingWord({ words, interval = 2400 }: { words: readonly strin
 /** A line of text riding a wave, drifting forever. Text is repeated so the loop is seamless. */
 export function CurvedMarquee({ text }: { text: string }) {
   const id = useId().replace(/:/g, "");
-  const [animate, setAnimate] = useState(false);
-  useEffect(() => setAnimate(!reducedMotion()), []);
+  const animate = !useReducedMotion();
   const line = Array.from({ length: 6 }, () => text).join("   ✳   ");
   return (
     <div className="curved-marquee" aria-hidden="true">
