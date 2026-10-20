@@ -49,7 +49,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="esp-actions" aria-label="Démarrer">
-        <Link href="/dashboard/generate" className="esp-action ink esp-rise" style={rise(4)}>
+        <Link href="/dashboard/generate" className="esp-action esp-rise" style={rise(4)}>
           <Sparkles /><h2>Générer une épreuve</h2><p>Choisissez la matière et la classe : l’IA rédige l’épreuve et son corrigé en direct.</p><span className="esp-action-foot">Commencer <ArrowRight /><Kbd>N</Kbd></span>
         </Link>
         <Link href="/dashboard/documents" className="esp-action esp-rise" style={rise(5)}>

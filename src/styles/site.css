@@ -619,3 +619,7 @@ html[data-accent]:not([data-accent="noir"]) .eyebrow { color:var(--accent); }
 .esp-gen.is-generating .esp-sheet-done { flex-wrap:wrap; gap:12px; }
 /* The settings fill the frame; the exam only appears, full width, once generation starts */
 .esp-gen.is-form { grid-template-columns:minmax(0,1fr); }
+/* Utilisation: quota and plans side by side, same width and same height */
+.esp-plan { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+@media(max-width:900px) { .esp-plan { grid-template-columns:minmax(0,1fr); } }
+.esp-list .esp-row-head > :last-child { text-align:right; }
