@@ -65,6 +65,7 @@ function SubscriptionContent() {
           <h2>Votre quota actuel</h2>
           <Usage label="Épreuves générées" used={exams_used} limit={exams_limit} unlimited={is_unlimited} />
           <Usage label="Corrigés générés" used={corrections_used} limit={corrections_limit} unlimited={is_unlimited} />
+          <p className="esp-quota-note">Chaque épreuve générée et chaque corrigé consomment une unité de votre quota.</p>
         </section>
         <section className="esp-panel esp-offer" id="forfaits">
           <span className="esp-eyebrow">Recharger mon compte</span>
@@ -78,7 +79,7 @@ function SubscriptionContent() {
       {history.length > 0 && (
         <section className="esp-block">
           <div className="esp-block-head"><h2>Historique des paiements</h2></div>
-          <div className="esp-panel esp-list" role="table" aria-label="Paiements">
+          <div className="esp-panel esp-list esp-payments" role="table" aria-label="Paiements">
             <div className="esp-row esp-row-head" role="row">
               <span role="columnheader">Forfait</span><span role="columnheader">Montant</span><span role="columnheader">Date</span><span role="columnheader">Statut</span><span role="columnheader">Crédits</span>
             </div>
