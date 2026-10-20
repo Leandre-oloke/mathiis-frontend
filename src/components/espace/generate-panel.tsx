@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Check, ChevronDown, Clock, Download, RotateCcw, Sparkles, WandSparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, Clock, RotateCcw, Sparkles, WandSparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHead, subjects } from './parts';
 import { ZoomableDocument } from './zoomable-document';
@@ -47,6 +47,7 @@ export function GeneratePanel() {
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<Step[]>([]);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const top = useRef<HTMLDivElement>(null);
   useEffect(() => () => clearInterval(timer.current), []);
 
   const subj = subjects.find(s => s.id === subjectId);
@@ -89,16 +90,26 @@ export function GeneratePanel() {
     const size = plan.reduce((n, s) => n + s.title.length + s.lines.join('').length, 0);
     clearInterval(timer.current);
     setSteps(plan); setWritten(0); setRunning(true);
+    // Bring the top of the generation view on screen (the form it replaces may have been scrolled).
+    requestAnimationFrame(() => top.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
     timer.current = setInterval(() => setWritten(w => { const next = w + SPEED; if (next >= size) { clearInterval(timer.current); setRunning(false); return size; } return next; }), TICK);
   };
 
   const label = (sa: { number: number; title: string }) => `SA${sa.number} : ${sa.title}`;
   const countIn = (title: string) => picks.filter(p => p.sa === title).length;
 
-  return <div className="esp-page">
-    <PageHead eyebrow="Nouvelle épreuve" title="Générer une épreuve" subtitle="Configurez les paramètres : la génération s’affiche en direct." />
-    <div className="esp-gen">
-      <form className="esp-panel esp-gen-form" onSubmit={e => { e.preventDefault(); start(); }}>
+  // Once generation starts, the exam takes the whole width; "Modifier les paramètres" brings the form back.
+  const generating = steps.length > 0;
+  const kind = mode === 'exercice' ? 'Exercice' : 'Épreuve';
+
+  return <div className="esp-page" ref={top}>
+    {generating
+      ? <PageHead eyebrow={`${kind} · ${subject} · Classe ${classe}`} title={done ? 'Génération terminée' : 'Génération en cours'}
+          subtitle={done ? 'Voici l’épreuve rédigée par le modèle Mathiis.' : 'L’épreuve s’écrit sous vos yeux, formules et figures comprises.'}
+          actions={<Button variant="framed" type="button" onClick={clearSheet}><ArrowLeft /> Modifier les paramètres</Button>} />
+      : <PageHead eyebrow="Nouvelle épreuve" title="Générer une épreuve" subtitle="Configurez les paramètres : la génération s’affiche en direct." />}
+    <div className={`esp-gen${generating ? ' is-generating' : ''}`}>
+      {!generating && <form className="esp-panel esp-gen-form" onSubmit={e => { e.preventDefault(); start(); }}>
         <fieldset><legend><span>1</span>Type de génération</legend>
           <div className="esp-choice-row two">
             <Choice selected={mode === 'epreuve'} onClick={() => chooseMode('epreuve')}><span><strong>Épreuve complète</strong><small>3 problèmes + contexte / tâche</small></span></Choice>
@@ -142,9 +153,9 @@ export function GeneratePanel() {
           <p className="esp-hint">{missing || `Prêt : ${mode === 'epreuve' ? 'épreuve complète' : 'exercice'} de ${subject}, classe de ${classe}, ${duree}.`}</p>
           {ready && !sample
             ? <Button asChild className="esp-primary"><Link href="/auth/register">Créer un compte pour générer <ArrowRight /></Link></Button>
-            : <Button type="submit" className="esp-primary" disabled={!ready || running}>{running ? 'Génération en cours…' : done ? <><RotateCcw /> Revoir</> : <><Sparkles /> Générer</>}</Button>}
+            : <Button type="submit" className="esp-primary" disabled={!ready}><Sparkles /> Générer</Button>}
         </div>
-      </form>
+      </form>}
 
       <aside className="esp-sheet-wrap" aria-live="polite">
         {steps.length > 0 && <div className="esp-progress">
@@ -174,7 +185,7 @@ export function GeneratePanel() {
             })}
             {running && <span className="esp-caret" aria-hidden="true" />}
           </div>
-          {done && <div className="esp-sheet-done"><span><Check /> Épreuve prête{withKey ? ' · corrigé inclus' : ''}</span><Button variant="framed" size="sm" type="button" disabled title="Disponible dans votre espace"><Download /> PDF</Button></div>}
+          {done && <div className="esp-sheet-done"><span><Check /> Épreuve prête{withKey ? ' · corrigé inclus' : ''}</span><span className="esp-row-actions"><Button variant="framed" size="sm" type="button" onClick={clearSheet}><RotateCcw /> Autres paramètres</Button><Button asChild size="sm" className="esp-primary"><Link href="/auth/register">Générer la vôtre <ArrowRight /></Link></Button></span></div>}
         </div>
         </ZoomableDocument>
         <p className="esp-note">{sample ? 'Exemple réel généré par le modèle Mathiis (Tle D, SA1 « Configurations de l’espace »).' : 'Le choix des notions suit le programme officiel ; la rédaction se fait par le modèle Mathiis, dans votre espace.'}</p>

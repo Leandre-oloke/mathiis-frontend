@@ -614,3 +614,7 @@ html[data-accent]:not([data-accent="noir"]) .eyebrow::before { background:var(--
 .esp-plan-price { font:700 16px var(--font-display); white-space:nowrap; }
 .esp-pay.esp-pay { width:100%; }
 .esp-dialog-foot { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+/* Generation view: the exam replaces the form and takes the whole width */
+.esp-gen.is-generating { grid-template-columns:minmax(0,1fr); }
+.esp-gen.is-generating .esp-sheet-wrap { width:100%; max-width:860px; margin-inline:auto; }
+.esp-gen.is-generating .esp-sheet-done { flex-wrap:wrap; gap:12px; }
