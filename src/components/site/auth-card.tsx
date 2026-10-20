@@ -24,7 +24,7 @@ export function AuthShell({ children, bear, labelledBy = "auth-title" }: { child
         {children}
       </section>
       <p className="kofi-credit auth-credit">
-        Mascotte : <a href="https://rive.app/marketplace/3469-7899-login-screen-character/" target="_blank" rel="noopener">« login-screen-character » par JcToon</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · recadré
+        Mascotte : <a href="https://rive.app/marketplace/3469-7899-login-screen-character/" target="_blank" rel="noopener noreferrer">« login-screen-character » par JcToon</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> · recadré
       </p>
     </main>
   );

@@ -34,7 +34,9 @@ export function PaywallModal() {
     setLoading(true);
     try {
       const { data } = await api.post<{ payment_url: string }>("/subscriptions/initiate", { plan: selectedPlan });
-      window.open(data.payment_url, "_blank");
+      // Only a secure payment page is opened, and it gets no handle on this tab.
+      if (!/^https:\/\//.test(data.payment_url)) throw new Error("payment_url");
+      window.open(data.payment_url, "_blank", "noopener,noreferrer");
       handleClose();
     } catch {
       toast.error("Impossible d'initier le paiement. Réessayez.");
