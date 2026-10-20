@@ -1,9 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
-import type { Exam } from "@/store/exams";
+import toast from "react-hot-toast";
+import { ChevronDown, Download, FileText, FileType2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useExamStore, type Exam } from "@/store/exams";
 import { formatDate, STATUS_LABELS } from "@/lib/utils";
 
 const STATUS_CLASS: Record<Exam["status"], string> = { completed: "complete", generating: "running", pending: "draft", failed: "failed" };
@@ -32,9 +35,48 @@ export function ExamTable({ exams, actions }: { exams: Exam[]; actions?: (exam: 
           <span role="cell">{exam.level ?? "—"}</span>
           <span role="cell">{formatDate(exam.created_at)}</span>
           <span role="cell"><ExamStatus status={exam.status} /></span>
-          <span role="cell" className="esp-row-actions">{actions?.(exam)}</span>
+          <span role="cell" className="esp-row-actions"><ExamDownload exam={exam} />{actions?.(exam)}</span>
         </div>
       ))}
     </div>
+  );
+}
+
+/** "Télécharger" menu of a finished exam: PDF, PDF with answers, and Word for the engines that produce it. */
+export function ExamDownload({ exam }: { exam: Exam }) {
+  const { downloadPdf, downloadDocx } = useExamStore();
+  const [busy, setBusy] = useState(false);
+  if (exam.status !== "completed") return null;
+
+  const download = async (format: "pdf" | "docx", withAnswers: boolean) => {
+    setBusy(true);
+    const toastId = withAnswers ? toast.loading("Génération du corrigé en cours… (1 à 2 min)", { duration: 180000 }) : undefined;
+    try {
+      await (format === "pdf" ? downloadPdf : downloadDocx)(exam.id, withAnswers);
+    } catch {
+      toast.error(format === "pdf" ? "Erreur lors du téléchargement" : "Erreur lors du téléchargement Word");
+    } finally {
+      if (toastId) toast.dismiss(toastId);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="framed" size="sm" disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Download />} Télécharger <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="esp-menu">
+        <DropdownMenuItem onSelect={() => void download("pdf", false)}><Download />PDF</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void download("pdf", true)}><Download />PDF avec corrigé</DropdownMenuItem>
+        {(exam.engine === "standard" || exam.engine === "premium") && <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => void download("docx", false)}><FileType2 />Word</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void download("docx", true)}><FileType2 />Word avec corrigé</DropdownMenuItem>
+        </>}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

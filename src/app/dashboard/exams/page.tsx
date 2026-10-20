@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { ChevronDown, Download, FileType2, Loader2, LoaderCircle, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { LoaderCircle, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { EmptyState, Kbd, PageHead } from "@/components/espace/parts";
 import { ExamTable } from "@/components/espace/exam-rows";
 import { useExamStore, type Exam } from "@/store/exams";
@@ -19,7 +18,7 @@ const FILTERS = [
 ];
 
 export default function ExamsPage() {
-  const { exams, total, page, pages, fetchExams, deleteExam, downloadPdf, downloadDocx, refreshExam, loading } = useExamStore();
+  const { exams, total, page, pages, fetchExams, deleteExam, refreshExam, loading } = useExamStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -54,36 +53,7 @@ export default function ExamsPage() {
     }
   };
 
-  const download = async (exam: Exam, format: "pdf" | "docx", withAnswers: boolean) => {
-    setBusy(exam.id);
-    try {
-      await (format === "pdf" ? downloadPdf : downloadDocx)(exam.id, withAnswers);
-    } catch {
-      toast.error(format === "pdf" ? "Erreur lors du téléchargement" : "Erreur lors du téléchargement Word");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const actions = (exam: Exam) => <>
-    {exam.status === "completed" && (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="framed" size="sm" disabled={busy === exam.id}>
-            {busy === exam.id ? <Loader2 className="animate-spin" /> : <Download />} Télécharger <ChevronDown />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="esp-menu">
-          <DropdownMenuItem onSelect={() => void download(exam, "pdf", false)}><Download />PDF</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void download(exam, "pdf", true)}><Download />PDF avec corrigé</DropdownMenuItem>
-          {(exam.engine === "standard" || exam.engine === "premium") && <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void download(exam, "docx", false)}><FileType2 />Word</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void download(exam, "docx", true)}><FileType2 />Word avec corrigé</DropdownMenuItem>
-          </>}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )}
     <Button variant="framed" size="sm" className="esp-danger" disabled={busy === exam.id}
       onClick={() => void handleDelete(exam.id)} onBlur={() => setConfirmDelete((c) => (c === exam.id ? null : c))}
       aria-label={confirmDelete === exam.id ? `Confirmer la suppression de ${exam.title}` : `Supprimer ${exam.title}`}>

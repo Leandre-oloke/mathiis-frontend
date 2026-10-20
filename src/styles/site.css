@@ -623,3 +623,6 @@ html[data-accent]:not([data-accent="noir"]) .eyebrow { color:var(--accent); }
 .esp-plan { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
 @media(max-width:900px) { .esp-plan { grid-template-columns:minmax(0,1fr); } }
 .esp-list .esp-row-head > :last-child { text-align:right; }
+.esp-list .esp-row { grid-template-columns:minmax(0,2.2fr) .55fr .9fr .8fr minmax(210px,1.3fr); }
+.esp-list .esp-row-actions { flex-wrap:nowrap; }
+@media(max-width:760px) { .esp-list .esp-row { grid-template-columns:minmax(0,1fr) auto; } .esp-list .esp-row-actions { flex-wrap:wrap; } }
