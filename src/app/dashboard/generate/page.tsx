@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { ExamMarkdown } from "@/components/exam/ExamMarkdown";
 
 // ── Données ────────────────────────────────────────────────────────────────────
 
@@ -1748,41 +1749,33 @@ export default function GeneratePage() {
 
   if (phase === "streaming" || phase === "done" || phase === "error") {
     return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Génération en cours</h1>
-            <p className="text-slate-500 mt-1 text-sm">{subject} · Classe {classe}</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{mode === "exercice" ? "Exercice" : "Épreuve"} · {subject} · Classe {classe}</p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              {phase === "done" ? "Génération terminée" : phase === "error" ? "Génération interrompue" : "Génération en cours"}
+            </h1>
           </div>
           {phase === "done" && (
-            <button onClick={handleRestart} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-              ← Nouvelle épreuve
-            </button>
+            <button onClick={handleRestart} className="btn-framed">← Nouvelle épreuve</button>
           )}
         </div>
 
         {/* Barre de progression par étape */}
-        <div className="card-ink p-5 space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span>{phase === "done" ? "Génération terminée" : phase === "error" ? "Erreur"
-              : doneCount >= STEPS.length ? "Finalisation (figures, contextes et tâches), encore quelques minutes..."
-              : `Génération en cours, veuillez patienter... ${progress}%`}</span>
-            <span>{doneCount}/{STEPS.length} étapes</span>
+        <div className="card-ink space-y-4 p-5">
+          <div className="flex items-center justify-between gap-3 text-[13px]">
+            <span className="font-medium">{phase === "done" ? "Génération terminée" : phase === "error" ? "Erreur"
+              : doneCount >= STEPS.length ? "Finalisation (figures, contextes et tâches), encore quelques minutes…"
+              : `Génération en cours, veuillez patienter… ${progress} %`}</span>
+            <span className="font-mono text-xs text-muted">{doneCount}/{STEPS.length} étapes</span>
           </div>
 
-          {/* Progress bar */}
-          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                phase === "error" ? "bg-red-500" : phase === "done" ? "bg-emerald-500" : "bg-indigo-500"
-              )}
-              style={{ width: `${progress}%` }}
-            />
+          <div className="h-2 w-full overflow-hidden rounded-full bg-foreground/[0.08]">
+            <div className={cn("h-full rounded-full transition-all duration-500", phase === "error" ? "bg-red-600" : "bg-foreground")} style={{ width: `${progress}%` }} />
           </div>
 
-          {/* Étapes */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             {STEPS.map((step) => {
               const done = completedSteps.includes(step);
               const active = activeSteps.has(step);
@@ -1790,18 +1783,15 @@ export default function GeneratePage() {
                 <div
                   key={step}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                    done ? "bg-slate-50 border-slate-200 text-slate-700"
-                    : active ? "bg-slate-100 border-slate-300 text-slate-700 animate-pulse"
-                    : "bg-slate-50 border-slate-100 text-slate-400"
+                    "flex items-center gap-1.5 rounded-lg border-[1.5px] px-3 py-1.5 text-xs font-semibold transition-all",
+                    done ? "border-foreground bg-foreground text-background"
+                    : active ? "border-foreground"
+                    : "border-foreground/15 text-muted"
                   )}
                 >
                   {done
-                    ? <CheckCircle2 className="w-3 h-3" />
-                    : active
-                    ? <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse inline-block" />
-                    : <span className="w-2 h-2 rounded-full bg-slate-200 inline-block" />
-                  }
+                    ? <CheckCircle2 className="h-3 w-3" />
+                    : <span className={cn("inline-block h-2 w-2 rounded-full bg-current", active ? "animate-pulse" : "opacity-40")} />}
                   {STEP_LABELS[step]}
                 </div>
               );
@@ -1809,46 +1799,40 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* Zone de preview en streaming */}
+        {/* L'épreuve s'écrit en direct, formules et figures rendues */}
         {phase !== "error" && (
           <div
             ref={previewRef}
-            className="card-ink p-6 h-96 overflow-y-auto font-mono text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"
+            aria-live="polite"
+            className="h-[28rem] overflow-y-auto rounded-md border-[1.5px] border-foreground bg-card p-6 shadow-[6px_6px_0_var(--foreground)] sm:p-8"
           >
-            {streamText || <span className="text-slate-300 italic">L&apos;épreuve s&apos;affiche ici…</span>}
-            {phase === "streaming" && (
-              <span className="inline-block w-0.5 h-4 bg-indigo-500 animate-pulse ml-0.5 align-middle" />
-            )}
+            {streamText
+              ? <ExamMarkdown text={streamText} streaming={phase === "streaming"} />
+              : <span className="italic text-muted">L’épreuve s’affiche ici…</span>}
+            {phase === "streaming" && <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-foreground align-middle" />}
           </div>
         )}
 
         {/* Erreur */}
         {phase === "error" && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex gap-4">
-            <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex gap-4 rounded-2xl border-[1.5px] border-red-600 bg-red-50 p-6">
+            <AlertCircle className="mt-0.5 h-6 w-6 shrink-0 text-red-600" />
             <div>
-              <p className="font-medium text-red-700">Erreur lors de la génération</p>
-              <p className="text-sm text-red-600 mt-1">{errorMsg}</p>
-              <button
-                onClick={handleRestart}
-                className="mt-3 text-sm font-medium text-red-600 hover:text-red-800 underline"
-              >
-                Réessayer
-              </button>
+              <p className="font-semibold text-red-700">Erreur lors de la génération</p>
+              <p className="mt-1 text-sm text-red-600">{errorMsg}</p>
+              <button onClick={handleRestart} className="mt-3 text-sm font-semibold text-red-700 underline">Réessayer</button>
             </div>
           </div>
         )}
 
         {/* Actions après génération */}
         {phase === "done" && examId && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
+          <div className="card-ink space-y-4 p-6">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-slate-600 flex-shrink-0" />
+              <CheckCircle2 className="h-6 w-6 shrink-0" />
               <div>
-                <p className="font-semibold text-slate-900">
-                  {mode === "exercice" ? "Exercice généré avec succès !" : "Épreuve générée avec succès !"}
-                </p>
-                <p className="text-sm text-slate-600">Téléchargez-la ou consultez-la dans vos épreuves.</p>
+                <p className="font-display text-lg font-bold">{mode === "exercice" ? "Exercice généré avec succès" : "Épreuve générée avec succès"}</p>
+                <p className="text-sm text-muted">Téléchargez-la ou consultez-la dans vos épreuves.</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -1864,22 +1848,15 @@ export default function GeneratePage() {
                   }
                 }}
                 disabled={downloading}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+                className="btn-ink"
               >
-                <Download className="w-4 h-4" />
-                {downloading ? "Téléchargement..." : "Télécharger le PDF"}
+                <Download className="h-4 w-4" />
+                {downloading ? "Téléchargement…" : "Télécharger le PDF"}
               </button>
-              <button
-                onClick={() => router.push(`/dashboard/exams/${examId}`)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                Voir l&apos;épreuve
+              <button onClick={() => router.push(`/dashboard/exams/${examId}`)} className="btn-framed">
+                <Eye className="h-4 w-4" />Voir l’épreuve
               </button>
-              <button
-                onClick={() => router.push("/dashboard/exams")}
-                className="flex items-center gap-2 px-5 py-2.5 text-slate-500 hover:text-slate-700 text-sm transition-colors"
-              >
+              <button onClick={() => router.push("/dashboard/exams")} className="px-3 text-sm font-semibold underline-offset-4 hover:underline">
                 Mes épreuves →
               </button>
             </div>
