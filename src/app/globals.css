@@ -1,24 +1,60 @@
 @import "tailwindcss";
 
+/*
+ * Mathiis — identité noir et blanc.
+ * Toute l'interface est en encre noire sur fond blanc. Les couleurs vives de Tailwind utilisées
+ * par les pages (indigo, émeraude, ambre…) sont redéfinies ci-dessous en nuances de gris :
+ * les teintes claires restent des gris clairs, les teintes soutenues deviennent l'encre.
+ * Seul le rouge est conservé, pour les erreurs et les actions destructrices.
+ */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --primary: #4f46e5;
-  --primary-light: #818cf8;
-  --primary-dark: #3730a3;
-  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --background: oklch(99.5% 0 0);
+  --foreground: oklch(14.5% 0 0);
+  --card: oklch(100% 0 0);
+  --muted: oklch(45% 0 0);
+  --border: oklch(14.5% 0 0 / 0.14);
+  --secondary: oklch(95% 0 0);
+  --primary: oklch(14.5% 0 0);
+  --on-primary: oklch(99.5% 0 0);
+  --shadow-ink: 0 4px 0 oklch(14.5% 0 0);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
-  --font-sans: var(--font-sans);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-plex), system-ui, sans-serif;
+  --font-display: var(--font-grotesk), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-paper: var(--font-baskerville), Georgia, serif;
 }
 
-* {
-  box-sizing: border-box;
+@theme {
+  --color-indigo-50: oklch(98.5% 0 0); --color-indigo-100: oklch(97% 0 0); --color-indigo-200: oklch(92.2% 0 0); --color-indigo-300: oklch(87% 0 0); --color-indigo-400: oklch(55.6% 0 0); --color-indigo-500: oklch(26.9% 0 0); --color-indigo-600: oklch(20.5% 0 0); --color-indigo-700: oklch(14.5% 0 0); --color-indigo-800: oklch(14.5% 0 0); --color-indigo-900: oklch(14.5% 0 0); --color-indigo-950: oklch(14.5% 0 0);
+  --color-violet-50: oklch(98.5% 0 0); --color-violet-100: oklch(97% 0 0); --color-violet-200: oklch(92.2% 0 0); --color-violet-300: oklch(87% 0 0); --color-violet-400: oklch(55.6% 0 0); --color-violet-500: oklch(26.9% 0 0); --color-violet-600: oklch(20.5% 0 0); --color-violet-700: oklch(14.5% 0 0); --color-violet-800: oklch(14.5% 0 0); --color-violet-900: oklch(14.5% 0 0); --color-violet-950: oklch(14.5% 0 0);
+  --color-purple-50: oklch(98.5% 0 0); --color-purple-100: oklch(97% 0 0); --color-purple-200: oklch(92.2% 0 0); --color-purple-300: oklch(87% 0 0); --color-purple-400: oklch(55.6% 0 0); --color-purple-500: oklch(26.9% 0 0); --color-purple-600: oklch(20.5% 0 0); --color-purple-700: oklch(14.5% 0 0); --color-purple-800: oklch(14.5% 0 0); --color-purple-900: oklch(14.5% 0 0); --color-purple-950: oklch(14.5% 0 0);
+  --color-blue-50: oklch(98.5% 0 0); --color-blue-100: oklch(97% 0 0); --color-blue-200: oklch(92.2% 0 0); --color-blue-300: oklch(87% 0 0); --color-blue-400: oklch(55.6% 0 0); --color-blue-500: oklch(26.9% 0 0); --color-blue-600: oklch(20.5% 0 0); --color-blue-700: oklch(14.5% 0 0); --color-blue-800: oklch(14.5% 0 0); --color-blue-900: oklch(14.5% 0 0); --color-blue-950: oklch(14.5% 0 0);
+  --color-sky-50: oklch(98.5% 0 0); --color-sky-100: oklch(97% 0 0); --color-sky-200: oklch(92.2% 0 0); --color-sky-300: oklch(87% 0 0); --color-sky-400: oklch(55.6% 0 0); --color-sky-500: oklch(26.9% 0 0); --color-sky-600: oklch(20.5% 0 0); --color-sky-700: oklch(14.5% 0 0); --color-sky-800: oklch(14.5% 0 0); --color-sky-900: oklch(14.5% 0 0); --color-sky-950: oklch(14.5% 0 0);
+  --color-emerald-50: oklch(98.5% 0 0); --color-emerald-100: oklch(97% 0 0); --color-emerald-200: oklch(92.2% 0 0); --color-emerald-300: oklch(87% 0 0); --color-emerald-400: oklch(55.6% 0 0); --color-emerald-500: oklch(26.9% 0 0); --color-emerald-600: oklch(20.5% 0 0); --color-emerald-700: oklch(14.5% 0 0); --color-emerald-800: oklch(14.5% 0 0); --color-emerald-900: oklch(14.5% 0 0); --color-emerald-950: oklch(14.5% 0 0);
+  --color-green-50: oklch(98.5% 0 0); --color-green-100: oklch(97% 0 0); --color-green-200: oklch(92.2% 0 0); --color-green-300: oklch(87% 0 0); --color-green-400: oklch(55.6% 0 0); --color-green-500: oklch(26.9% 0 0); --color-green-600: oklch(20.5% 0 0); --color-green-700: oklch(14.5% 0 0); --color-green-800: oklch(14.5% 0 0); --color-green-900: oklch(14.5% 0 0); --color-green-950: oklch(14.5% 0 0);
+  --color-teal-50: oklch(98.5% 0 0); --color-teal-100: oklch(97% 0 0); --color-teal-200: oklch(92.2% 0 0); --color-teal-300: oklch(87% 0 0); --color-teal-400: oklch(55.6% 0 0); --color-teal-500: oklch(26.9% 0 0); --color-teal-600: oklch(20.5% 0 0); --color-teal-700: oklch(14.5% 0 0); --color-teal-800: oklch(14.5% 0 0); --color-teal-900: oklch(14.5% 0 0); --color-teal-950: oklch(14.5% 0 0);
+  --color-amber-50: oklch(98.5% 0 0); --color-amber-100: oklch(97% 0 0); --color-amber-200: oklch(92.2% 0 0); --color-amber-300: oklch(87% 0 0); --color-amber-400: oklch(55.6% 0 0); --color-amber-500: oklch(26.9% 0 0); --color-amber-600: oklch(20.5% 0 0); --color-amber-700: oklch(14.5% 0 0); --color-amber-800: oklch(14.5% 0 0); --color-amber-900: oklch(14.5% 0 0); --color-amber-950: oklch(14.5% 0 0);
+  --color-orange-50: oklch(98.5% 0 0); --color-orange-100: oklch(97% 0 0); --color-orange-200: oklch(92.2% 0 0); --color-orange-300: oklch(87% 0 0); --color-orange-400: oklch(55.6% 0 0); --color-orange-500: oklch(26.9% 0 0); --color-orange-600: oklch(20.5% 0 0); --color-orange-700: oklch(14.5% 0 0); --color-orange-800: oklch(14.5% 0 0); --color-orange-900: oklch(14.5% 0 0); --color-orange-950: oklch(14.5% 0 0);
+  --color-yellow-50: oklch(98.5% 0 0); --color-yellow-100: oklch(97% 0 0); --color-yellow-200: oklch(92.2% 0 0); --color-yellow-300: oklch(87% 0 0); --color-yellow-400: oklch(55.6% 0 0); --color-yellow-500: oklch(26.9% 0 0); --color-yellow-600: oklch(20.5% 0 0); --color-yellow-700: oklch(14.5% 0 0); --color-yellow-800: oklch(14.5% 0 0); --color-yellow-900: oklch(14.5% 0 0); --color-yellow-950: oklch(14.5% 0 0);
+  --color-rose-50: oklch(98.5% 0 0); --color-rose-100: oklch(97% 0 0); --color-rose-200: oklch(92.2% 0 0); --color-rose-300: oklch(87% 0 0); --color-rose-400: oklch(55.6% 0 0); --color-rose-500: oklch(26.9% 0 0); --color-rose-600: oklch(20.5% 0 0); --color-rose-700: oklch(14.5% 0 0); --color-rose-800: oklch(14.5% 0 0); --color-rose-900: oklch(14.5% 0 0); --color-rose-950: oklch(14.5% 0 0);
+  --color-pink-50: oklch(98.5% 0 0); --color-pink-100: oklch(97% 0 0); --color-pink-200: oklch(92.2% 0 0); --color-pink-300: oklch(87% 0 0); --color-pink-400: oklch(55.6% 0 0); --color-pink-500: oklch(26.9% 0 0); --color-pink-600: oklch(20.5% 0 0); --color-pink-700: oklch(14.5% 0 0); --color-pink-800: oklch(14.5% 0 0); --color-pink-900: oklch(14.5% 0 0); --color-pink-950: oklch(14.5% 0 0);
+  --color-fuchsia-50: oklch(98.5% 0 0); --color-fuchsia-100: oklch(97% 0 0); --color-fuchsia-200: oklch(92.2% 0 0); --color-fuchsia-300: oklch(87% 0 0); --color-fuchsia-400: oklch(55.6% 0 0); --color-fuchsia-500: oklch(26.9% 0 0); --color-fuchsia-600: oklch(20.5% 0 0); --color-fuchsia-700: oklch(14.5% 0 0); --color-fuchsia-800: oklch(14.5% 0 0); --color-fuchsia-900: oklch(14.5% 0 0); --color-fuchsia-950: oklch(14.5% 0 0);
+  --color-cyan-50: oklch(98.5% 0 0); --color-cyan-100: oklch(97% 0 0); --color-cyan-200: oklch(92.2% 0 0); --color-cyan-300: oklch(87% 0 0); --color-cyan-400: oklch(55.6% 0 0); --color-cyan-500: oklch(26.9% 0 0); --color-cyan-600: oklch(20.5% 0 0); --color-cyan-700: oklch(14.5% 0 0); --color-cyan-800: oklch(14.5% 0 0); --color-cyan-900: oklch(14.5% 0 0); --color-cyan-950: oklch(14.5% 0 0);
+  --color-lime-50: oklch(98.5% 0 0); --color-lime-100: oklch(97% 0 0); --color-lime-200: oklch(92.2% 0 0); --color-lime-300: oklch(87% 0 0); --color-lime-400: oklch(55.6% 0 0); --color-lime-500: oklch(26.9% 0 0); --color-lime-600: oklch(20.5% 0 0); --color-lime-700: oklch(14.5% 0 0); --color-lime-800: oklch(14.5% 0 0); --color-lime-900: oklch(14.5% 0 0); --color-lime-950: oklch(14.5% 0 0);
+  --color-slate-50: oklch(98.5% 0 0); --color-slate-100: oklch(97% 0 0); --color-slate-200: oklch(92.2% 0 0); --color-slate-300: oklch(87% 0 0); --color-slate-400: oklch(70.8% 0 0); --color-slate-500: oklch(55.6% 0 0); --color-slate-600: oklch(43.9% 0 0); --color-slate-700: oklch(37.1% 0 0); --color-slate-800: oklch(26.9% 0 0); --color-slate-900: oklch(20.5% 0 0); --color-slate-950: oklch(14.5% 0 0);
+  --color-gray-50: oklch(98.5% 0 0); --color-gray-100: oklch(97% 0 0); --color-gray-200: oklch(92.2% 0 0); --color-gray-300: oklch(87% 0 0); --color-gray-400: oklch(70.8% 0 0); --color-gray-500: oklch(55.6% 0 0); --color-gray-600: oklch(43.9% 0 0); --color-gray-700: oklch(37.1% 0 0); --color-gray-800: oklch(26.9% 0 0); --color-gray-900: oklch(20.5% 0 0); --color-gray-950: oklch(14.5% 0 0);
+  --color-zinc-50: oklch(98.5% 0 0); --color-zinc-100: oklch(97% 0 0); --color-zinc-200: oklch(92.2% 0 0); --color-zinc-300: oklch(87% 0 0); --color-zinc-400: oklch(70.8% 0 0); --color-zinc-500: oklch(55.6% 0 0); --color-zinc-600: oklch(43.9% 0 0); --color-zinc-700: oklch(37.1% 0 0); --color-zinc-800: oklch(26.9% 0 0); --color-zinc-900: oklch(20.5% 0 0); --color-zinc-950: oklch(14.5% 0 0);
+  --color-stone-50: oklch(98.5% 0 0); --color-stone-100: oklch(97% 0 0); --color-stone-200: oklch(92.2% 0 0); --color-stone-300: oklch(87% 0 0); --color-stone-400: oklch(70.8% 0 0); --color-stone-500: oklch(55.6% 0 0); --color-stone-600: oklch(43.9% 0 0); --color-stone-700: oklch(37.1% 0 0); --color-stone-800: oklch(26.9% 0 0); --color-stone-900: oklch(20.5% 0 0); --color-stone-950: oklch(14.5% 0 0);
 }
+
+* { box-sizing: border-box; }
 
 body {
   background: var(--background);
@@ -27,55 +63,39 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar personnalisée */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
+::selection { background: var(--foreground); color: var(--background); }
 
-/* Animations */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
+/* Barre de défilement discrète */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: oklch(97% 0 0); }
+::-webkit-scrollbar-thumb { background: oklch(80% 0 0); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(60% 0 0); }
 
+/* Chargement */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .skeleton {
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background: linear-gradient(90deg, oklch(92% 0 0) 25%, oklch(97% 0 0) 50%, oklch(92% 0 0) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+
+/* Conservés pour compatibilité, désormais en noir et blanc */
+.glass { background: oklch(100% 0 0 / 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); }
+.gradient-text { color: var(--foreground); }
+
+/* Logo : masque rempli avec la couleur d'encre */
+.brand-mark {
+  display: inline-block;
+  background: currentColor;
+  -webkit-mask: url(/logo-mathiis.png) center / contain no-repeat;
+  mask: url(/logo-mathiis.png) center / contain no-repeat;
 }
 
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-/* Glass morphism */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #4f46e5, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
