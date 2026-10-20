@@ -1801,13 +1801,12 @@ export default function GeneratePage() {
     setShowEngineModal(true);
   }
 
-  const chosen = flatSelectedNotions;
   const ready = !!mode && !!subject;
 
   return (
     <div className="esp-page">
       <PageHead eyebrow="Nouvelle épreuve" title="Générer une épreuve" subtitle="Configurez les paramètres : la génération s’affiche en direct." />
-      <div className="esp-gen">
+      <div className="esp-gen is-form">
         <form className="esp-panel esp-gen-form" onSubmit={(e) => { e.preventDefault(); validateAndChooseEngine(); }}>
           <fieldset><legend><span>1</span>Type de génération</legend>
             <div className="esp-choice-row two">
@@ -1929,26 +1928,6 @@ export default function GeneratePage() {
           </div>
         </form>
 
-        <aside className="esp-sheet-wrap">
-          <ZoomableDocument>
-            <div className="esp-sheet">
-              <div className="esp-sheet-head"><span>Mathiis · {mode === "exercice" ? "Exercice" : "Épreuve"}</span><span>{classe ? `Classe ${classe}` : "Programme 2026-2027"}</span></div>
-              <h2>{subject ?? "Votre épreuve"}</h2>
-              <p className="esp-sheet-meta">{classe ? `Classe : ${classe}${mode === "epreuve" ? ` · Durée : ${formatDuree(duration)}` : ""}` : "Choisissez le type, la matière puis la classe."}</p>
-              <div className="esp-sheet-body">
-                {chosen.length > 0 ? (
-                  <section className="esp-sheet-step">
-                    <h3>Notions retenues</h3>
-                    {chosen.map((n, i) => <p key={n} className="q">{i + 1}. {n}</p>)}
-                  </section>
-                ) : (
-                  <div className="esp-sheet-blank">{Array.from({ length: 7 }, (_, i) => <i key={i} style={{ width: `${90 - (i % 3) * 18}%` }} />)}<p>L’aperçu se remplit au fil de vos choix.</p></div>
-                )}
-              </div>
-            </div>
-          </ZoomableDocument>
-          <p className="esp-note">Le choix des notions suit le programme officiel 2026-2027. L’épreuve s’écrit ici dès que vous lancez la génération.</p>
-        </aside>
       </div>
 
       {/* Choix du moteur (Titan 1 / Titan 2) — s'ouvre au clic sur Générer */}

@@ -442,7 +442,7 @@ html.menu-locked .mascot-guide { display:none; }
 
 /* Section labels: plain words, readable size, a short rule instead of brackets */
 .eyebrow { display:inline-flex; align-items:center; gap:10px; font:600 12.5px var(--font-sans); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
-.eyebrow::before { content:""; width:18px; height:1.5px; background:currentColor; }
+
 .workflow .eyebrow,.entry-dark .eyebrow { color:oklch(1 0 0 / .65); }
 .bottom-cta .eyebrow { justify-content:center; }
 
@@ -535,7 +535,6 @@ html.menu-locked .guide-pill { display:none; }
 .esp-sa-group input,.auth-input input { accent-color:var(--accent); }
 .esp-sheet-done svg,.esp-sa-count.is-ok { color:var(--accent); }
 html[data-accent]:not([data-accent="noir"]) .eyebrow { color:var(--accent); }
-html[data-accent]:not([data-accent="noir"]) .eyebrow::before { background:var(--accent); }
 .esp-toggle input:checked + span::after { background:var(--on-accent); }
 
 /* Palette button and panel */
@@ -618,3 +617,5 @@ html[data-accent]:not([data-accent="noir"]) .eyebrow::before { background:var(--
 .esp-gen.is-generating { grid-template-columns:minmax(0,1fr); }
 .esp-gen.is-generating .esp-sheet-wrap { width:100%; max-width:860px; margin-inline:auto; }
 .esp-gen.is-generating .esp-sheet-done { flex-wrap:wrap; gap:12px; }
+/* The settings fill the frame; the exam only appears, full width, once generation starts */
+.esp-gen.is-form { grid-template-columns:minmax(0,1fr); }

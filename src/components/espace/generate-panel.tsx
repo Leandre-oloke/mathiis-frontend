@@ -108,7 +108,7 @@ export function GeneratePanel() {
           subtitle={done ? 'Voici l’épreuve rédigée par le modèle Mathiis.' : 'L’épreuve s’écrit sous vos yeux, formules et figures comprises.'}
           actions={<Button variant="framed" type="button" onClick={clearSheet}><ArrowLeft /> Modifier les paramètres</Button>} />
       : <PageHead eyebrow="Nouvelle épreuve" title="Générer une épreuve" subtitle="Configurez les paramètres : la génération s’affiche en direct." />}
-    <div className={`esp-gen${generating ? ' is-generating' : ''}`}>
+    <div className={`esp-gen ${generating ? 'is-generating' : 'is-form'}`}>
       {!generating && <form className="esp-panel esp-gen-form" onSubmit={e => { e.preventDefault(); start(); }}>
         <fieldset><legend><span>1</span>Type de génération</legend>
           <div className="esp-choice-row two">
@@ -157,7 +157,7 @@ export function GeneratePanel() {
         </div>
       </form>}
 
-      <aside className="esp-sheet-wrap" aria-live="polite">
+      {generating && <aside className="esp-sheet-wrap" aria-live="polite">
         {steps.length > 0 && <div className="esp-progress">
           <div className="esp-progress-top"><span>{done ? 'Génération terminée' : 'Génération en cours, veuillez patienter…'} {percent} %</span><span>{finished}/{steps.length} étapes</span></div>
           <div className="esp-progress-track"><span style={{ width: `${percent}%` }} /></div>
@@ -189,7 +189,7 @@ export function GeneratePanel() {
         </div>
         </ZoomableDocument>
         <p className="esp-note">{sample ? 'Exemple réel généré par le modèle Mathiis (Tle D, SA1 « Configurations de l’espace »).' : 'Le choix des notions suit le programme officiel ; la rédaction se fait par le modèle Mathiis, dans votre espace.'}</p>
-      </aside>
+      </aside>}
     </div>
   </div>;
 }
