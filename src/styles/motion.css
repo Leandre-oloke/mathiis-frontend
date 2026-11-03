@@ -1,0 +1,95 @@
+/* ===== Motion inspired by pixpa.com, rewritten for Mathiis in ink on paper ===== */
+
+/* 1. Rotating word in the hero title: every word sits in the same cell, the active one slides in. */
+.rotating-word { display:inline-grid; vertical-align:bottom; overflow:hidden; padding-bottom:.08em; margin-bottom:-.08em; }
+.rotating-word > span { grid-area:1/1; white-space:nowrap; transition:transform .6s cubic-bezier(.7,0,.2,1), opacity .6s ease; }
+.rotating-word > .is-in { transform:translateY(0); opacity:1; }
+.rotating-word > .is-out { transform:translateY(100%); opacity:0; }
+.rotating-word > .is-in ~ .is-out { transform:translateY(-100%); }
+
+/* 2. Text riding a wave */
+.curved-marquee { background:transparent; color:var(--foreground); overflow:hidden; }
+.curved-marquee svg { display:block; width:100%; height:clamp(58px,6.4vw,92px); }
+.curved-marquee text { fill:currentColor; font:700 24px var(--font-display); letter-spacing:.02em; text-transform:uppercase; }
+
+/* 3. Wall of example exams scrolling vertically */
+.subjects-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:56px; align-items:center; }
+.subjects-grid > div > ul { grid-template-columns:minmax(0,1fr); }
+.subjects-grid ul li { border-left:0; border-top:1px solid var(--border); grid-template-columns:auto 1fr; column-gap:16px; align-items:center; }
+.subjects-grid ul li:first-child { border-top:0; }
+.subjects-grid ul li > span { grid-row:span 2; margin:0; width:44px; height:44px; display:grid; place-items:center; border:1.5px solid currentColor; border-radius:12px; }
+.exam-wall { height:540px; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; overflow:hidden; -webkit-mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent); mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent); }
+.wall-col { overflow:hidden; }
+.wall-track { display:grid; gap:14px; animation:wall-up var(--duration,36s) linear infinite; }
+.wall-col.down .wall-track { animation-name:wall-down; }
+.exam-wall:hover .wall-track { animation-play-state:paused; }
+@keyframes wall-up { from { transform:translateY(0); } to { transform:translateY(calc(-50% - 7px)); } }
+@keyframes wall-down { from { transform:translateY(calc(-50% - 7px)); } to { transform:translateY(0); } }
+.wall-sheet { display:grid; gap:10px; padding:16px 14px; background:var(--card); border:1.5px solid var(--foreground); border-radius:8px; box-shadow:3px 3px 0 var(--foreground); transition:transform .2s ease, box-shadow .2s ease; }
+.wall-sheet:hover { transform:translateY(-5px); box-shadow:5px 7px 0 var(--foreground); }
+.wall-sheet-top { display:flex; justify-content:space-between; font:500 10px var(--font-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+.wall-sheet h3 { font:700 15px/1.25 var(--font-paper); }
+.wall-sheet-lines { display:grid; gap:6px; }
+.wall-sheet-lines i { height:5px; border-radius:3px; background:var(--secondary); }
+.wall-sheet-lines i:nth-child(2) { width:82%; } .wall-sheet-lines i:nth-child(4) { width:64%; }
+.wall-sheet-foot { display:flex; justify-content:space-between; gap:8px; padding-top:8px; border-top:1px dashed var(--border); font-size:11px; font-weight:600; }
+@media(max-width:900px) { .subjects-grid { grid-template-columns:minmax(0,1fr); gap:36px; } .exam-wall { height:420px; } }
+@media(max-width:520px) { .exam-wall { grid-template-columns:repeat(2,minmax(0,1fr)); } .exam-wall .wall-col:nth-child(3) { display:none; } }
+
+/* 4. Cards lift on hover */
+.stat,.subjects-band li,.esp-stat,.esp-choice,.esp-row:not(.esp-row-head) { transition:transform .2s ease, box-shadow .2s ease, background-color .2s ease, color .2s ease; }
+.stat:hover { transform:translateY(-5px); }
+.subjects-band li:hover { transform:translateY(-3px); }
+.esp-stat:hover { transform:translateY(-5px); background:var(--background); }
+.esp-row:not(.esp-row-head):hover { background:var(--background); }
+
+/* 5. Shine sweeping across the ink "Générer une épreuve" card */
+.esp-action { position:relative; overflow:hidden; }
+.esp-action.ink::after { content:""; position:absolute; top:-20%; bottom:-20%; left:-60%; width:40%; background:linear-gradient(100deg,transparent,oklch(1 0 0 / .16),transparent); transform:skewX(-18deg); transition:left .7s ease; pointer-events:none; }
+.esp-action.ink:hover::after { left:130%; }
+.esp-action.ink { animation:esp-rise .6s cubic-bezier(.2,.8,.2,1) both, ink-shine-hint 1.2s 1.4s ease both; }
+@keyframes ink-shine-hint { from { box-shadow:0 0 0 0 color-mix(in oklab,var(--foreground) 35%,transparent); } 50% { box-shadow:0 0 0 6px color-mix(in oklab,var(--foreground) 12%,transparent); } to { box-shadow:0 0 0 0 transparent; } }
+
+/* 6. A check that bounces in when something is ready */
+@keyframes bounce-in { 0% { transform:scale(.3); opacity:0; } 50% { transform:scale(1.05); opacity:1; } 70% { transform:scale(.9); } 100% { transform:scale(1); } }
+.esp-sheet-done svg,.esp-files li .esp-file-icon svg.lucide-check,.esp-saved svg,.esp-sent svg,.esp-status.complete { animation:bounce-in .6s cubic-bezier(.2,.8,.2,1) both; }
+
+/* 7. Lists appear one item at a time */
+.esp-list .esp-row,.esp-files li { animation:esp-rise .5s cubic-bezier(.2,.8,.2,1) both; }
+.esp-list .esp-row:nth-child(2) { animation-delay:.06s; } .esp-list .esp-row:nth-child(3) { animation-delay:.12s; } .esp-list .esp-row:nth-child(4) { animation-delay:.18s; } .esp-list .esp-row:nth-child(5) { animation-delay:.24s; }
+
+/* 8. "01 / Créer": idea typed → link drawn → exam card appears and fills → check bounces, then the next idea */
+.idea-cycle { min-height:300px; }
+.idea-step { animation:idea-out .35s 4.2s ease forwards; }
+.idea-cycle .diagram-input { width:fit-content; max-width:100%; }
+.idea-cycle .typed { display:inline-block; overflow:hidden; white-space:nowrap; font:500 13px var(--font-mono); width:calc(var(--chars) * 1ch + 2px); border-right:2px solid currentColor; animation:typing 1.1s steps(28) both, caret .8s step-end 1.1s 4; }
+.idea-cycle .diagram-path { margin-left:40px; animation:draw-link .45s 1.15s ease-out both; }
+.idea-cycle .diagram-result { animation:esp-rise .55s 1.55s cubic-bezier(.2,.8,.2,1) both; }
+.idea-cycle .diagram-lines i { transform-origin:0 50%; animation:fill-line .5s ease-out both; }
+.idea-cycle .diagram-lines i:nth-child(1) { animation-delay:1.95s; } .idea-cycle .diagram-lines i:nth-child(2) { animation-delay:2.1s; } .idea-cycle .diagram-lines i:nth-child(3) { animation-delay:2.25s; }
+.idea-cycle .diagram-check { animation:bounce-in .6s 2.6s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes typing { from { width:0; } }
+@keyframes caret { 50% { border-color:transparent; } }
+@keyframes draw-link { from { clip-path:inset(0 100% 100% 0); } to { clip-path:inset(0 0 0 0); } }
+@keyframes fill-line { from { transform:scaleX(0); } }
+@keyframes idea-out { to { opacity:0; transform:translateY(-8px); } }
+
+/* "02 / Corriger": the card settles and each answer is ticked in turn (driven by usePremiumMotion) */
+.entry-correction > div svg { flex-shrink:0; }
+
+/* 9. "02 / Corriger": a deck of three answer keys; the chosen one comes to the front */
+.correction-deck { display:grid; gap:22px; }
+.deck-stack { display:grid; padding-top:104px; }
+.deck-card { grid-area:1/1; transition:transform .6s cubic-bezier(.2,.8,.2,1), opacity .4s ease, box-shadow .3s ease; will-change:transform; }
+.deck-card[data-pos="0"] { z-index:3; transform:rotate(-2deg); cursor:pointer; }
+.deck-card[data-pos="0"]:hover { transform:translateY(-6px) rotate(-2deg); }
+.deck-card[data-pos="0"]:focus-visible { outline:2px solid var(--foreground); outline-offset:6px; }
+.deck-card[data-pos="1"] { z-index:2; transform:translate(14px,-50px) rotate(1.5deg) scale(.97); cursor:pointer; }
+.deck-card[data-pos="2"] { z-index:1; transform:translate(28px,-98px) rotate(3.5deg) scale(.94); cursor:pointer; }
+.deck-card[data-pos="1"]:hover { transform:translate(14px,-60px) rotate(1.5deg) scale(.97); }
+.deck-card[data-pos="2"]:hover { transform:translate(28px,-108px) rotate(3.5deg) scale(.94); }
+.deck-card[data-pos="0"] .deck-row { animation:esp-rise .45s cubic-bezier(.2,.8,.2,1) both; }
+.deck-card[data-pos="0"] .deck-row:nth-of-type(2) { animation-delay:.15s; }
+.deck-card[data-pos="0"] .deck-row svg { animation:bounce-in .55s .25s cubic-bezier(.2,.8,.2,1) both; }
+.deck-card[data-pos="0"] .deck-row:nth-of-type(2) svg { animation-delay:.4s; }
+@media(max-width:520px) { .deck-stack { padding-top:96px; } .deck-card[data-pos="1"] { transform:translate(8px,-46px) rotate(1.5deg) scale(.97); } .deck-card[data-pos="2"] { transform:translate(16px,-90px) rotate(3deg) scale(.94); } }

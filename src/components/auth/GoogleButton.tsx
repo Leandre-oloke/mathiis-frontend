@@ -16,7 +16,7 @@ declare global {
           }) => void;
           renderButton: (
             parent: HTMLElement,
-            options: { theme: string; size: string; width: number; text: string }
+            options: { theme: string; size: string; width: number; text: string; shape?: string; locale?: string; logo_alignment?: string }
           ) => void;
         };
       };
@@ -53,8 +53,11 @@ export default function GoogleButton() {
       window.google.accounts.id.renderButton(divRef.current, {
         theme: "outline",
         size: "large",
-        width: 320,
+        width: Math.min(400, divRef.current.offsetWidth || 320),
         text: "continue_with",
+        shape: "rectangular",
+        locale: "fr",
+        logo_alignment: "center",
       });
     }
 
@@ -74,13 +77,9 @@ export default function GoogleButton() {
   if (!clientId) return null;
 
   return (
-    <div className="space-y-4">
-      <div ref={divRef} className="flex justify-center" />
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs text-slate-400">ou</span>
-        <div className="h-px flex-1 bg-slate-200" />
-      </div>
-    </div>
+    <>
+      <div ref={divRef} className="auth-google-slot" />
+      <div className="auth-or"><span>ou</span></div>
+    </>
   );
 }

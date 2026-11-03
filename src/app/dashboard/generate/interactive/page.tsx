@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { streamPremiumStep, streamPremiumCorrige, finalizePremiumExam } from "@/lib/stream";
 import { cn } from "@/lib/utils";
+import { ExamMarkdown } from "@/components/exam/ExamMarkdown";
 
 const STEPS = [
   { id: "contexte",   label: "Contexte" },
@@ -22,7 +23,7 @@ function assembleMarkdown(classe: string, parts: Record<string, string>): string
   const college = ["6e", "5e", "4e", "3e"].includes(classe);
   const lines = [
     `## ÉPREUVE DE MATHÉMATIQUES - ${classe}`,
-    "*Année scolaire 2025-2026 · Durée : 3 h*",
+    "*Année scolaire 2026-2027 · Durée : 3 h*",
     "", "---", "",
   ];
   for (const s of STEPS) {
@@ -74,12 +75,8 @@ function StepRail({
 
 // ── Rendu Markdown simple ─────────────────────────────────────────────────────
 function MarkdownPreview({ content }: { content: string }) {
-  if (!content) return <p className="text-slate-400 text-sm italic">Rien encore validé.</p>;
-  return (
-    <div className="prose prose-sm max-w-none text-slate-700 text-sm whitespace-pre-wrap leading-relaxed font-mono">
-      {content}
-    </div>
-  );
+  if (!content) return <p className="text-sm italic text-muted">Rien encore validé.</p>;
+  return <ExamMarkdown text={content} />;
 }
 
 // ── Page principale ───────────────────────────────────────────────────────────
@@ -222,7 +219,7 @@ function InteractivePageInner() {
         </div>
 
         {/* Rail */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4">
+        <div className="card-ink p-4">
           <StepRail idx={idx} parts={parts} />
         </div>
 
@@ -230,7 +227,7 @@ function InteractivePageInner() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
           {/* Déjà validé */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-5">
+          <div className="lg:col-span-2 card-ink p-5">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
               Déjà validé
             </p>
@@ -263,7 +260,7 @@ function InteractivePageInner() {
               disabled={busy}
               rows={14}
               className={cn(
-                "w-full px-4 py-3 border rounded-xl text-sm font-mono leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all",
+                "w-full px-4 py-3 border rounded-xl text-sm font-mono leading-relaxed resize-none focus:outline-none focus:shadow-[var(--shadow-ink)] transition-all",
                 busy
                   ? "border-amber-200 bg-amber-50/30 text-slate-600 cursor-not-allowed"
                   : "border-slate-200 bg-white text-slate-800"
@@ -281,7 +278,7 @@ function InteractivePageInner() {
                 onChange={(e) => setInstruction(e.target.value)}
                 disabled={busy}
                 placeholder='Ex : "plus court", "changer les valeurs", "niveau plus facile"'
-                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50"
+                className="flex-1 px-3 py-2 border-[1.5px] border-foreground rounded-lg text-sm focus:outline-none focus:shadow-[var(--shadow-ink)] disabled:opacity-50"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && instruction.trim() && !busy) regenerate();
                 }}
@@ -319,7 +316,7 @@ function InteractivePageInner() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Épreuve terminée</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Épreuve terminée</h1>
           <p className="text-slate-500 mt-1 text-sm">{title} · {classe}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -342,7 +339,7 @@ function InteractivePageInner() {
       </div>
 
       {/* Épreuve finale */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+      <div className="card-ink p-6">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
           <h2 className="font-semibold text-slate-800 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-amber-500" />
@@ -358,7 +355,7 @@ function InteractivePageInner() {
       </div>
 
       {/* Corrigé */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+      <div className="card-ink p-6">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
           <h2 className="font-semibold text-slate-800">Corrigé</h2>
           {corrige && !corrigeBusy && (
@@ -368,7 +365,7 @@ function InteractivePageInner() {
         {!corrige && !corrigeBusy ? (
           <button
             onClick={makeCorrige}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 btn-ink"
           >
             <Sparkles className="w-4 h-4" />
             Générer le corrigé

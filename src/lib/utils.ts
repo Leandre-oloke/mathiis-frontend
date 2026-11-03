@@ -13,6 +13,16 @@ export function formatDate(date: string | Date) {
   });
 }
 
+export function formatDateTime(date: string | Date) {
+  return new Date(date).toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} o`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;

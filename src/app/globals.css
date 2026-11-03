@@ -1,81 +1,67 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "../styles/espace.css";
+@import "../styles/motion.css";
+@import "../styles/site.css";
+
+/*
+ * Mathiis — identité noir et blanc reprise du template de présentation
+ * (src/styles/*.css) pour la page d'accueil, qui n'utilise que les tokens
+ * --foreground/--background/--accent (jamais les couleurs Tailwind brutes
+ * ci-dessous). Les autres pages gardent leurs couleurs Tailwind d'origine
+ * (indigo, émeraude, etc.), non redéfinies ici.
+ */
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --primary: #4f46e5;
-  --primary-light: #818cf8;
-  --primary-dark: #3730a3;
-  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-sans: var(--font-plex), system-ui, sans-serif;
+  --font-display: var(--font-grotesk), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-paper: var(--font-baskerville), Georgia, serif;
+  --shadow-ink: 0 3px 0 var(--foreground);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-plex), system-ui, sans-serif;
+  --font-display: var(--font-grotesk), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-paper: var(--font-baskerville), Georgia, serif;
+  --color-background: var(--background); --color-foreground: var(--foreground);
+  --color-card: var(--card); --color-card-foreground: var(--foreground);
+  --color-popover: var(--card); --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary); --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--secondary); --color-secondary-foreground: var(--foreground);
+  /* text-muted = muted ink (used across the app); the shadcn pair keeps its meaning */
+  --color-muted: var(--muted); --color-muted-foreground: var(--muted);
+  --color-accent: var(--accent); --color-accent-foreground: var(--on-accent);
+  --color-border: var(--border); --color-input: var(--border); --color-ring: var(--primary);
+  --color-ink: var(--foreground); --color-on-ink: var(--background);
+  --color-destructive: oklch(.6 .2 25);
+  --radius-md: 10px; --radius-lg: 18px;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Scrollbar personnalisée */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Animations */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
+/* Chargement */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .skeleton {
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background: linear-gradient(90deg, oklch(92% 0 0) 25%, oklch(97% 0 0) 50%, oklch(92% 0 0) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+@keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
 
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
+/* Conservés pour compatibilité, désormais en noir et blanc */
+.glass { background: oklch(100% 0 0 / 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border); }
+.gradient-text { color: var(--foreground); }
 
-/* Glass morphism */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #4f46e5, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Boutons de l’identité : encre pleine pour l’action principale, cadre à l’encre pour le reste */
+@layer components {
+  .btn-ink {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-foreground px-5 text-sm font-semibold text-background transition-[transform,box-shadow] hover:-translate-y-px disabled:pointer-events-none disabled:opacity-40;
+    box-shadow: 0 3px 0 oklch(14.5% 0 0 / 0.3);
+  }
+  .btn-sm { @apply h-8 px-3 text-xs; }
+  .card-ink { @apply rounded-2xl border-[1.5px] border-foreground bg-card; }
 }

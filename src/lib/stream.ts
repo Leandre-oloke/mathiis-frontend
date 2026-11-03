@@ -1,9 +1,6 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+import { getCsrfToken, isCsrfInvalidDetail, redirectToLoginAfterCsrfFailure } from "./csrf";
 
-function getToken(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("access_token") || "";
-}
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 async function streamPost(
   endpoint: string,
@@ -13,9 +10,10 @@ async function streamPost(
 ): Promise<string> {
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${getToken()}`,
+      "X-CSRF-Token": getCsrfToken() || "",
     },
     body: JSON.stringify(payload),
     signal,
@@ -24,6 +22,13 @@ async function streamPost(
   if (!res.ok) {
     if (res.status === 429) throw Object.assign(new Error("quota"), { status: 429 });
     if (res.status === 503) throw Object.assign(new Error("unavailable"), { status: 503 });
+    if (res.status === 403) {
+      const err = await res.json().catch(() => ({}));
+      if (isCsrfInvalidDetail(err?.detail)) {
+        await redirectToLoginAfterCsrfFailure();
+        throw new Error("CSRF invalide");
+      }
+    }
     throw new Error(`Erreur ${res.status}`);
   }
 
@@ -76,12 +81,21 @@ export async function finalizePremiumExam(data: {
 }): Promise<{ id: string }> {
   const res = await fetch(`${BASE_URL}/premium/finalize`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${getToken()}`,
+      "X-CSRF-Token": getCsrfToken() || "",
     },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Échec de la sauvegarde");
+  if (!res.ok) {
+    if (res.status === 403) {
+      const err = await res.json().catch(() => ({}));
+      if (isCsrfInvalidDetail(err?.detail)) {
+        await redirectToLoginAfterCsrfFailure();
+      }
+    }
+    throw new Error("Échec de la sauvegarde");
+  }
   return res.json();
 }

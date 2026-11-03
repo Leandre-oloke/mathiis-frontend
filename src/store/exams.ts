@@ -32,6 +32,13 @@ export interface Exam {
   pdf_url: string | null;
   is_public: boolean;
   engine: "free" | "standard" | "premium";
+  // "epreuve" ou "exercice" (cf. ExamCreateRequest.mode côté backend) —
+  // absent sur les épreuves générées avant l'ajout de ce champ.
+  exam_kind?: "epreuve" | "exercice";
+  tokens_in: number;
+  tokens_out: number;
+  tokens_total: number;
+  cost_usd: number;
   created_at: string;
   updated_at: string;
 }
@@ -86,7 +93,9 @@ export const useExamStore = create<ExamState>((set, get) => ({
   refreshExam: async (id) => {
     const { data } = await api.get(`/exams/${id}`);
     set((state) => ({
-      exams: state.exams.map((e) => (e.id === id ? data : e)),
+      exams: state.exams.some((e) => e.id === id)
+        ? state.exams.map((e) => (e.id === id ? data : e))
+        : [...state.exams, data],
     }));
     return data;
   },

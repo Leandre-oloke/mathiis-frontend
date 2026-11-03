@@ -22,13 +22,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         toastOptions={{
           duration: 4000,
           style: {
-            background: "#1e293b",
-            color: "#f8fafc",
+            background: "oklch(14.5% 0 0)",
+            color: "oklch(99.5% 0 0)",
             borderRadius: "12px",
             fontSize: "14px",
             padding: "12px 16px",
           },
-          success: { iconTheme: { primary: "#4f46e5", secondary: "#fff" } },
+          success: { iconTheme: { primary: "oklch(99.5% 0 0)", secondary: "oklch(14.5% 0 0)" } },
         }}
       />
     </QueryClientProvider>

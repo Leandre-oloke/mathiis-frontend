@@ -15,7 +15,7 @@ const navItemsPublic: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord", external: false },
   { href: "/dashboard/generate", icon: Sparkles, label: "Générer une épreuve", external: false },
   { href: "/dashboard/exams", icon: FileText, label: "Mes épreuves", external: false },
-  { href: "/dashboard/documents", icon: Upload, label: "Mes corrigés", external: false },
+  { href: "/dashboard/documents", icon: Upload, label: "Importer", external: false },
   { href: "/dashboard/subscription", icon: CreditCard, label: "Abonnement", external: false },
   { href: "/dashboard/help", icon: HelpCircle, label: "Aide", external: false },
 ];
@@ -24,7 +24,7 @@ const navItemsAdmin: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord", external: false },
   { href: "/dashboard/generate", icon: Sparkles, label: "Générer une épreuve", external: false },
   { href: "/dashboard/exams", icon: FileText, label: "Mes épreuves", external: false },
-  { href: "/dashboard/documents", icon: Upload, label: "Mes corrigés", external: false },
+  { href: "/dashboard/documents", icon: Upload, label: "Importer", external: false },
   { href: "/dashboard/help", icon: HelpCircle, label: "Aide", external: false },
   // Lien "Administration" retiré : ce dépôt (mathiis-frontend, partagé avec
   // un collaborateur externe) ne contient plus les pages /admin.

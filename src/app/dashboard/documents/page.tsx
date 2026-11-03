@@ -3,11 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuotaStore } from "@/store/quota";
 import { api } from "@/lib/api";
+import { getCsrfToken, isCsrfInvalidDetail, redirectToLoginAfterCsrfFailure } from "@/lib/csrf";
 import { formatDate, formatFileSize } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
-  CloudUpload, File, Trash2, Loader2, X, GraduationCap, CheckCircle2, Download,
+  AlertTriangle, CheckCircle2, ChevronDown, CloudUpload, Download, File, FileText, FileType2,
+  Image as ImageIcon, Loader2, MessageSquare, Send, Trash2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState, PageHead } from "@/components/espace/parts";
 
 interface Document {
   id: string;
@@ -20,6 +25,12 @@ interface Document {
   has_correction: boolean;
 }
 
+interface DocumentFeedbackMessage {
+  id: string;
+  message: string;
+  created_at: string;
+}
+
 const CLASSES = [
   "6e","5e","4e","3e",
   "2nde AB","2nde C","2nde D",
@@ -27,8 +38,11 @@ const CLASSES = [
   "Tle AB","Tle C","Tle D",
 ];
 
-const FILE_ICONS: Record<string, string> = {
-  pdf: "📄", docx: "📝", txt: "📃", markdown: "📋",
+// Matières supportées pour la correction d'épreuve importée.
+const CORRECT_SUBJECTS = ["Mathématiques", "PCT", "SVT"];
+
+const FILE_ICONS: Record<string, React.ElementType> = {
+  pdf: FileText, docx: FileType2, txt: File, markdown: File, image: ImageIcon,
 };
 
 export default function DocumentsPage() {
@@ -38,11 +52,22 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Deleting is final: the first click asks for confirmation, the second one deletes.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Modal correction
   const [correctModal, setCorrectModal] = useState<{ doc: Document } | null>(null);
   const [correctClass, setCorrectClass] = useState("Tle D");
+  const [correctSubject, setCorrectSubject] = useState("Mathématiques");
+  const [subjectAutoDetected, setSubjectAutoDetected] = useState(false);
   const [correcting, setCorrecting] = useState(false);
+
+  // Fil de signalement d'erreurs sur le corrigé (par document)
+  const [feedbackModal, setFeedbackModal] = useState<{ doc: Document; justCorrected: boolean } | null>(null);
+  const [feedbackMessages, setFeedbackMessages] = useState<DocumentFeedbackMessage[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSending, setFeedbackSending] = useState(false);
 
   const fetchDocs = async () => {
     try {
@@ -55,16 +80,24 @@ export default function DocumentsPage() {
     }
   };
 
-  useEffect(() => { fetchDocs(); }, []);
+  useEffect(() => {
+    let alive = true;
+    api.get("/documents")
+      .then(({ data }) => { if (alive) setDocuments(data); })
+      .catch(() => toast.error("Erreur lors du chargement"))
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
 
   const uploadFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) { toast.error("Fichier trop volumineux (max 5 Mo)"); return; }
     const allowed = ["application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain", "text/markdown"];
+      "text/plain", "text/markdown",
+      "image/jpeg", "image/png", "image/webp"];
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!allowed.includes(file.type) && !["pdf","docx","txt","md"].includes(ext || "")) {
-      toast.error("Format non supporté. Utilisez PDF, DOCX ou TXT.");
+    if (!allowed.includes(file.type) && !["pdf","docx","txt","md","jpg","jpeg","png","webp"].includes(ext || "")) {
+      toast.error("Format non supporté. Utilisez PDF, DOCX, TXT, JPG, PNG ou WEBP.");
       return;
     }
     setUploading(true);
@@ -90,6 +123,8 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (confirmDelete !== id) { setConfirmDelete(id); return; }
+    setConfirmDelete(null);
     try {
       await api.delete(`/documents/${id}`);
       setDocuments((prev) => prev.filter((d) => d.id !== id));
@@ -100,6 +135,16 @@ export default function DocumentsPage() {
   const openCorrectModal = (doc: Document) => {
     setCorrectModal({ doc });
     setCorrectClass("Tle D");
+    // Matière détectée automatiquement à l'upload (cf. detect_subject côté
+    // backend) : pré-sélectionne le menu sans empêcher l'utilisateur de le
+    // changer -- reste sur le défaut habituel si rien n'a été détecté.
+    if (doc.subject && CORRECT_SUBJECTS.includes(doc.subject)) {
+      setCorrectSubject(doc.subject);
+      setSubjectAutoDetected(true);
+    } else {
+      setCorrectSubject("Mathématiques");
+      setSubjectAutoDetected(false);
+    }
   };
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -134,18 +179,18 @@ export default function DocumentsPage() {
     // pare-feu intermédiaire ne garantit de laisser passer sans réponse
     // intermédiaire sur une connexion HTTP classique.
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     const docId = correctModal.doc.id;
     const originalName = correctModal.doc.original_filename;
 
     try {
       const resp = await fetch(
-        `${apiUrl}/documents/${docId}/correct/stream?classe=${encodeURIComponent(correctClass)}`,
+        `${apiUrl}/documents/${docId}/correct/stream?classe=${encodeURIComponent(correctClass)}&subject=${encodeURIComponent(correctSubject)}`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "X-CSRF-Token": getCsrfToken() || "",
           },
         }
       );
@@ -156,6 +201,13 @@ export default function DocumentsPage() {
           setCorrectModal(null);
           openPaywall("correction");
           return;
+        }
+        if (resp.status === 403) {
+          const err = await resp.json().catch(() => ({}));
+          if (isCsrfInvalidDetail(err?.detail)) {
+            await redirectToLoginAfterCsrfFailure();
+            return;
+          }
         }
         throw new Error(`Erreur ${resp.status}`);
       }
@@ -200,9 +252,10 @@ export default function DocumentsPage() {
             document.body.appendChild(link);
             link.click();
             setTimeout(() => { link.remove(); window.URL.revokeObjectURL(url); }, 200);
-            toast.success("Corrigé téléchargé !", { id: toastId });
+            toast.success("Corrigé téléchargé ! Merci de bien le relire.", { id: toastId, duration: 5000 });
             setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, has_correction: true } : d));
             setCorrectModal(null);
+            openFeedbackModal(correctModal.doc, true);
           } else if (event.type === "error") {
             if (event.code === "QUOTA_EXCEEDED") {
               toast.dismiss(toastId);
@@ -226,190 +279,193 @@ export default function DocumentsPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Mes corrigés</h1>
-        <p className="text-slate-500 mt-1 text-sm">
-          Importez une épreuve : le modèle IA génère automatiquement le corrigé en PDF.
-        </p>
-      </div>
+  const openFeedbackModal = async (doc: Document, justCorrected = false) => {
+    setFeedbackModal({ doc, justCorrected });
+    setFeedbackText("");
+    setFeedbackLoading(true);
+    try {
+      const { data } = await api.get(`/documents/${doc.id}/feedback`);
+      setFeedbackMessages(data);
+    } catch {
+      setFeedbackMessages([]);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
 
-      {/* Zone de dépôt */}
-      <div
+  const sendFeedback = async () => {
+    if (!feedbackModal || !feedbackText.trim()) return;
+    setFeedbackSending(true);
+    try {
+      const { data } = await api.post(`/documents/${feedbackModal.doc.id}/feedback`, {
+        message: feedbackText.trim(),
+      });
+      setFeedbackMessages((prev) => [...prev, data]);
+      setFeedbackText("");
+      toast.success("Merci, votre signalement a été transmis à l'équipe.");
+    } catch {
+      toast.error("Erreur lors de l'envoi du signalement");
+    } finally {
+      setFeedbackSending(false);
+    }
+  };
+
+  return (
+    <div className="esp-page">
+      <PageHead eyebrow="Correction" title="Importer" subtitle="Importez une épreuve : le modèle IA génère automatiquement le corrigé en PDF." />
+
+      <button
+        type="button"
+        className={`esp-drop${dragOver ? " is-over" : ""}`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => !uploading && fileRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-          dragOver
-            ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/40"
-        }`}
+        aria-busy={uploading}
       >
         <input
           ref={fileRef}
           type="file"
-          accept=".pdf,.docx,.txt,.md"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }}
+          accept=".pdf,.docx,.txt,.md,.jpg,.jpeg,.png,.webp"
+          hidden
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadFile(f); e.target.value = ""; }}
         />
-        <div className="flex flex-col items-center gap-3">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${
-            dragOver ? "bg-indigo-100" : "bg-slate-100"
-          }`}>
-            {uploading
-              ? <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-              : <CloudUpload className={`w-8 h-8 ${dragOver ? "text-indigo-500" : "text-slate-400"}`} />
-            }
+        <span className="esp-drop-icon">{uploading ? <Loader2 className="animate-spin" /> : <CloudUpload />}</span>
+        <strong>{uploading ? "Import en cours…" : dragOver ? "Déposez pour importer" : "Glissez-déposez ou cliquez pour importer"}</strong>
+        <span className="esp-drop-formats">{["PDF", "DOCX", "TXT", "JPG", "PNG"].map((f) => <i key={f}>{f}</i>)}<em>max 5 Mo</em></span>
+      </button>
+
+      <section className="esp-block">
+        <div className="esp-block-head"><h2>Documents importés</h2></div>
+        {loading ? (
+          <div className="esp-panel esp-loading" aria-busy="true"><Loader2 className="animate-spin" /> Chargement…</div>
+        ) : documents.length === 0 ? (
+          <div className="esp-panel"><EmptyState icon={<FileText />} title="Aucun document importé" text="Importez une épreuve (PDF, DOCX ou photo) pour obtenir son corrigé." /></div>
+        ) : (
+          <ul className="esp-panel esp-files">
+            {documents.map((doc) => {
+              const Icon = FILE_ICONS[doc.file_type] ?? FileText;
+              return (
+                <li key={doc.id}>
+                  <span className="esp-file-icon"><Icon /></span>
+                  <span className="esp-file-main">
+                    <strong>{doc.original_filename}</strong>
+                    <small>
+                      {doc.file_type.toUpperCase()} · {formatFileSize(doc.file_size)} · {formatDate(doc.created_at)}
+                      {doc.has_correction && " · corrigé prêt"}
+                    </small>
+                  </span>
+                  <span className="esp-row-actions">
+                    {doc.has_correction ? (
+                      <>
+                        <Button variant="framed" size="sm" onClick={() => void downloadCorrection(doc)} disabled={downloadingId === doc.id}>
+                          {downloadingId === doc.id ? <Loader2 className="animate-spin" /> : <Download />} Corrigé PDF
+                        </Button>
+                        <Button variant="framed" size="sm" onClick={() => void openFeedbackModal(doc)} aria-label="Signaler une erreur dans le corrigé">
+                          <MessageSquare />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" className="esp-primary" onClick={() => openCorrectModal(doc)}><CheckCircle2 /> Corriger</Button>
+                    )}
+                    <Button variant="framed" size="sm" className="esp-danger"
+                      onClick={() => void handleDelete(doc.id, doc.original_filename)}
+                      onBlur={() => setConfirmDelete((c) => (c === doc.id ? null : c))}
+                      aria-label={confirmDelete === doc.id ? `Confirmer la suppression de ${doc.original_filename}` : `Supprimer ${doc.original_filename}`}>
+                      <Trash2 />{confirmDelete === doc.id && "Confirmer"}
+                    </Button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <Dialog open={!!correctModal} onOpenChange={(open) => { if (!open && !correcting) setCorrectModal(null); }}>
+        <DialogContent className="esp-dialog">
+          <DialogHeader>
+            <DialogTitle>Corriger l’épreuve</DialogTitle>
+            <DialogDescription className="truncate">{correctModal?.doc.original_filename}</DialogDescription>
+          </DialogHeader>
+          <div className="esp-field">
+            <label htmlFor="correct-class">Classe de l’épreuve</label>
+            <div className="esp-select">
+              <select id="correct-class" value={correctClass} onChange={(e) => setCorrectClass(e.target.value)} disabled={correcting}>
+                {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <ChevronDown aria-hidden="true" />
+            </div>
           </div>
-          <div>
-            <p className="font-semibold text-slate-700">
-              {uploading ? "Import en cours…" : "Glissez-déposez ou cliquez pour importer"}
+          <div className="esp-field">
+            <label htmlFor="correct-subject">Matière de l’épreuve</label>
+            <div className="esp-select">
+              <select
+                id="correct-subject"
+                value={correctSubject}
+                onChange={(e) => { setCorrectSubject(e.target.value); setSubjectAutoDetected(false); }}
+                disabled={correcting}
+              >
+                {CORRECT_SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <ChevronDown aria-hidden="true" />
+            </div>
+            {subjectAutoDetected && (
+              <p className="esp-hint">Détectée automatiquement — vérifie qu’elle est correcte.</p>
+            )}
+          </div>
+          <p className="esp-hint">Le modèle IA analyse votre épreuve et génère un corrigé complet, question par question. Le PDF se télécharge automatiquement. <strong>Durée estimée : 1 à 3 minutes.</strong></p>
+          <div className="esp-dialog-actions">
+            <Button variant="framed" onClick={() => setCorrectModal(null)} disabled={correcting}>Annuler</Button>
+            <Button className="esp-primary" onClick={() => void handleCorrect()} disabled={correcting}>
+              {correcting ? <><Loader2 className="animate-spin" /> Correction en cours…</> : <><CheckCircle2 /> Générer le corrigé</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!feedbackModal} onOpenChange={(open) => { if (!open) setFeedbackModal(null); }}>
+        <DialogContent className="esp-dialog">
+          <DialogHeader>
+            <DialogTitle>Signaler une erreur</DialogTitle>
+            <DialogDescription className="truncate">{feedbackModal?.doc.original_filename}</DialogDescription>
+          </DialogHeader>
+
+          {feedbackModal?.justCorrected && (
+            <p className="esp-hint esp-hint-warning">
+              <AlertTriangle aria-hidden="true" /> Merci de bien relire le corrigé généré. S’il contient des erreurs, signalez-les ci-dessous : cela nous aide à améliorer le modèle.
             </p>
-            <p className="text-sm text-slate-400 mt-1">PDF, DOCX, TXT (max 5 Mo)</p>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Liste des documents */}
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-20 bg-slate-100 animate-pulse rounded-2xl" />
-          ))}
-        </div>
-      ) : documents.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100">
-          <File className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">Aucun document importé</p>
-          <p className="text-slate-400 text-sm mt-1">
-            Importez une épreuve en PDF ou DOCX pour obtenir son corrigé
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4 hover:border-slate-200 transition-colors"
-            >
-              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                {FILE_ICONS[doc.file_type] || "📄"}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-slate-900 truncate">{doc.original_filename}</div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-slate-400 uppercase font-medium">{doc.file_type}</span>
-                  <span className="text-xs text-slate-400">{formatFileSize(doc.file_size)}</span>
-                  <span className="text-xs text-slate-400">{formatDate(doc.created_at)}</span>
+          <div className="esp-feedback-thread">
+            {feedbackLoading ? (
+              <div className="esp-panel esp-loading" aria-busy="true"><Loader2 className="animate-spin" /></div>
+            ) : feedbackMessages.length === 0 ? (
+              <p className="esp-hint">Aucun signalement pour ce document pour l’instant.</p>
+            ) : (
+              feedbackMessages.map((m) => (
+                <div key={m.id} className="esp-feedback-message">
+                  <p>{m.message}</p>
+                  <small>{formatDate(m.created_at)}</small>
                 </div>
-              </div>
-
-              {/* Bouton Corriger / Télécharger (corrigé déjà généré) */}
-              {doc.has_correction ? (
-                <button
-                  onClick={() => downloadCorrection(doc)}
-                  disabled={downloadingId === doc.id}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors flex-shrink-0 disabled:opacity-60"
-                >
-                  {downloadingId === doc.id
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Download className="w-4 h-4" />}
-                  Télécharger
-                </button>
-              ) : (
-                <button
-                  onClick={() => openCorrectModal(doc)}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors flex-shrink-0"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Corriger l&apos;épreuve
-                </button>
-              )}
-
-              <button
-                onClick={() => handleDelete(doc.id, doc.original_filename)}
-                className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Modal correction */}
-      {correctModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="font-bold text-slate-900 text-lg">Corriger l&apos;épreuve</h2>
-                <p className="text-slate-500 text-sm mt-0.5 truncate max-w-xs">
-                  {correctModal.doc.original_filename}
-                </p>
-              </div>
-              <button
-                onClick={() => setCorrectModal(null)}
-                disabled={correcting}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  <GraduationCap className="inline w-3.5 h-3.5 mr-1 text-slate-400" />
-                  Classe de l&apos;épreuve *
-                </label>
-                <select
-                  value={correctClass}
-                  onChange={(e) => setCorrectClass(e.target.value)}
-                  disabled={correcting}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                >
-                  {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              {/* Info */}
-              <div className="p-3 bg-emerald-50 rounded-xl flex gap-2">
-                <Download className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-emerald-700 leading-relaxed">
-                  Le modèle IA va analyser votre épreuve et générer un corrigé complet
-                  question par question. Le PDF sera téléchargé automatiquement.
-                  <br /><span className="font-medium">Durée estimée : 1 à 3 minutes.</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => setCorrectModal(null)}
-                disabled={correcting}
-                className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-40"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleCorrect}
-                disabled={correcting}
-                className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-60"
-              >
-                {correcting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" />Correction en cours…</>
-                ) : (
-                  <><CheckCircle2 className="w-4 h-4" />Générer le corrigé</>
-                )}
-              </button>
-            </div>
+              ))
+            )}
           </div>
-        </div>
-      )}
+
+          <div className="esp-feedback-compose">
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              placeholder="Décrivez l'erreur remarquée dans le corrigé…"
+              rows={2}
+              disabled={feedbackSending}
+            />
+            <Button size="sm" className="esp-primary" onClick={() => void sendFeedback()} disabled={feedbackSending || !feedbackText.trim()}>
+              {feedbackSending ? <Loader2 className="animate-spin" /> : <Send />}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,14 +4,16 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useQuotaStore } from "@/store/quota";
-import { useExamStore } from "@/store/exams";
-import {
-  Sparkles, Zap, Layers, Clock, BookOpen, ChevronDown,
-  ArrowRight, CheckCircle2, Download, Eye, AlertCircle, ExternalLink,
-  Sigma, Atom, Dna,
-} from "lucide-react";
+import { BookOpen, Check, ChevronDown, Clock, ExternalLink, Eye, Layers, RotateCcw, Sparkles } from "lucide-react";
+import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageHead } from "@/components/espace/parts";
+import { ZoomableDocument } from "@/components/espace/zoomable-document";
 import { cn } from "@/lib/utils";
+import { getCsrfToken, isCsrfInvalidDetail, redirectToLoginAfterCsrfFailure } from "@/lib/csrf";
 import toast from "react-hot-toast";
+import { ExamMarkdown } from "@/components/exam/ExamMarkdown";
 
 // ── Données ────────────────────────────────────────────────────────────────────
 
@@ -22,68 +24,109 @@ import toast from "react-hot-toast";
 // sans aucun autre changement de code.
 const MATHEMATIQUES_NOTIONS: Record<string, string[]> = {
   "6e": ["Cube et pavé droit", "Cône de révolution", "Sphère", "Droites du plan",
-    "Cercles", "Angles", "Triangles", "Parallélogramme", "Entiers naturels",
-    "Nombres décimaux", "Fractions", "Calcul littéral", "Symétrie axiale",
-    "Symétrie centrale", "Proportionnalité", "Statistique"],
+    "Segments de droites", "Cercles", "Angles", "Triangles", "Parallélogramme",
+    "Entiers naturels", "Nombres décimaux", "Fractions", "Calcul littéral",
+    "Symétrie axiale", "Symétrie centrale", "Glissement",
+    "Proportionnalité", "Statistique"],
   "5e": ["Prisme droit", "Division dans ℕ", "Nombres premiers", "Puissances",
     "PPCM", "PGCD", "Distance", "Angles", "Triangles", "Cercle",
-    "Parallélogramme", "Nombres décimaux relatifs", "Fractions",
-    "Symétrie axiale", "Symétrie centrale", "Équations", "Proportionnalité"],
+    "Parallélogramme", "Polygones particuliers", "Nombres décimaux relatifs",
+    "Fractions", "Symétrie axiale", "Symétrie centrale", "Glissement",
+    "Équations", "Proportionnalité"],
   "4e": ["Angles au centre d'un cercle", "Distance", "Triangles", "Polygones réguliers",
-    "Nombres rationnels", "Puissances", "Expressions algébriques", "Pyramide",
-    "Cône de révolution", "Sphère et boule", "PPCM et PGCD", "Symétrie centrale",
-    "Translation", "Projection", "Équations et inéquations", "Proportionnalité", "Statistique"],
+    "Nombres décimaux", "Nombres rationnels", "Puissances", "Expressions algébriques",
+    "Pyramide", "Cône de révolution", "Représentation en perspective cavalière",
+    "Sphère et boule", "Notion de plan et de droite de l'espace", "PPCM et PGCD",
+    "Symétrie centrale", "Symétrie orthogonale", "Translation", "Projection",
+    "Équations et inéquations", "Proportionnalité", "Statistique"],
   "3e": ["Nombres réels", "Valeur absolue", "Trigonométrie", "Théorème de Thalès",
     "Triangles semblables", "Triangle rectangle", "Angles et cercles",
-    "Cône de révolution", "Polynômes", "Équations de droite",
+    "Cône de révolution", "Sections planes", "Polynômes", "Équations de droite",
     "Équations et inéquations", "Vecteurs", "Coordonnées de vecteurs",
     "Applications affines", "Applications linéaires", "Statistiques"],
   "2nde AB": ["Proportionnalité", "Fonctions numériques", "Suites numériques",
     "Dénombrement", "Nombres réels", "Calculs dans ℝ",
     "Équations du premier degré dans ℝ", "Inéquations du premier degré dans ℝ",
-    "Systèmes d'équations linéaires", "Représentation graphique de fonctions"],
-  "2nde C": ["Droites et plans de l'espace", "Parallélisme", "La sphère", "Calculs dans ℝ",
-    "Généralités sur les fonctions", "Étude de fonctions",
-    "Équations et inéquations dans ℝ", "Statistique", "Polynômes",
-    "Vecteurs du plan", "Droites dans le plan", "Homothétie",
-    "Angles inscrits", "Trigonométrie", "Produit scalaire", "Rotation", "Cercles dans le plan"],
-  "2nde D": ["Droites et plans de l'espace", "Parallélisme", "Calculs dans ℝ",
-    "Généralités sur les fonctions", "Étude de fonctions",
-    "Équations et inéquations dans ℝ", "Statistique", "Polynômes",
-    "Vecteurs du plan", "Droites dans le plan", "Homothétie",
-    "Relations métriques dans un triangle", "Trigonométrie",
-    "Produit scalaire", "Rotation", "Équation cartésienne d'un cercle"],
+    "Équations linéaires dans ℝ×ℝ", "Systèmes d'équations linéaires",
+    "Représentation graphique de fonctions"],
+  "2nde C": ["Représentation dans le plan d'objets de l'espace",
+    "Positions relatives d'une droite et d'un plan de l'espace",
+    "Positions relatives de deux plans de l'espace",
+    "Positions relatives de deux droites de l'espace",
+    "Étude du parallélisme de droites et plans de l'espace", "La sphère",
+    "Calculs dans ℝ", "Généralités sur les fonctions", "Applications",
+    "Étude de fonctions", "Équations et inéquations dans ℝ", "Statistique",
+    "Polynômes", "Vecteurs du plan", "Droites dans le plan", "Homothétie",
+    "Symétrie orthogonale – symétrie centrale – translation",
+    "Angles inscrits", "Angles orientés", "Trigonométrie", "Produit scalaire", "Rotation",
+    "Cercles dans le plan", "Équations et inéquations dans ℝ×ℝ"],
+  "2nde D": ["Représentation dans le plan d'objets de l'espace",
+    "Positions relatives d'une droite et d'un plan de l'espace",
+    "Positions relatives de deux plans de l'espace",
+    "Positions relatives de deux droites de l'espace",
+    "Étude du parallélisme de droites et plans de l'espace",
+    "Calculs dans ℝ", "Généralités sur les fonctions", "Applications",
+    "Étude de fonctions", "Équations et inéquations dans ℝ", "Statistique",
+    "Polynômes", "Vecteurs du plan", "Droites dans le plan", "Homothétie",
+    "Symétrie orthogonale – symétrie centrale – translation",
+    "Angles inscrits", "Relations métriques dans un triangle", "Angles orientés", "Trigonométrie",
+    "Produit scalaire", "Rotation", "Équation cartésienne d'un cercle",
+    "Équations et inéquations dans ℝ×ℝ"],
   "1ère AB": ["Équations du second degré", "Somme et produit des racines",
-    "Équations bicarrées", "Inéquations du second degré",
-    "Systèmes linéaires dans ℝ²", "Suites arithmétiques", "Suites géométriques",
-    "Statistique", "Dénombrement", "Fonctions numériques",
-    "Limite et continuité", "Dérivation", "Fonctions polynômes", "Fonctions homographiques"],
-  "1ère C": ["Orthogonalité dans l'espace", "Projection orthogonale",
+    "Équations bicarrées", "Inéquations du second degré", "Inéquation bicarrée",
+    "Systèmes linéaires dans ℝ²", "Système d'inéquations linéaires dans ℝ²",
+    "Suites arithmétiques", "Suites géométriques", "Statistique", "Dénombrement",
+    "Fonctions numériques", "Limite et continuité", "Dérivation",
+    "Étude des fonctions x→1/x, x→x² et x→√x",
+    "Étude des fonctions x→xⁿ et x→x^(1/n)",
+    "Représentation graphique de g : x→f(x-α)+β",
+    "Fonctions polynômes", "Fonctions homographiques"],
+  "1ère C": ["Droites orthogonales", "Droites et plans orthogonaux", "Plans perpendiculaires",
+    "Projection orthogonale sur un plan", "Projection orthogonale sur une droite",
     "Vecteurs de l'espace", "Produit scalaire", "Géométrie analytique",
     "Équations et inéquations dans ℝ", "Statistique", "Dénombrement",
-    "Limite et continuité", "Dérivation", "Primitives", "Suites numériques",
-    "Angles orientés", "Fonctions circulaires", "Trigonométrie",
-    "Barycentre", "Isométries du plan", "Similitudes"],
-  "1ère D": ["Orthogonalité dans l'espace", "Vecteurs de l'espace",
-    "Équations et inéquations dans ℝ", "Systèmes linéaires", "Statistique",
-    "Dénombrement", "Fonctions numériques", "Limites et continuité",
-    "Dérivation", "Primitives", "Suites numériques", "Angles orientés",
-    "Trigonométrie", "Barycentre", "Transformations du plan"],
+    "Fonctions et applications", "Limite et continuité",
+    "Extension de la notion de limite", "Dérivation", "Primitives",
+    "Suites numériques", "Angles orientés", "Angles associés",
+    "Formules d'addition et de transformation", "Fonctions circulaires",
+    "Équations et inéquations trigonométriques", "Barycentre",
+    "Orthogonalité, droite et cercle dans le plan", "Les translations",
+    "Les symétries orthogonales et les rotations", "Isométries du plan",
+    "Similitudes", "Représentations graphiques de fonctions et transformations du plan"],
+  "1ère D": ["Droites orthogonales", "Droites et plans orthogonaux", "Plans perpendiculaires",
+    "Projection orthogonale sur un plan", "Projection orthogonale sur une droite",
+    "Vecteurs de l'espace", "Équations et inéquations dans ℝ", "Systèmes linéaires",
+    "Statistique", "Dénombrement", "Fonctions numériques", "Limites et continuité",
+    "Extension de la notion de limite", "Dérivation", "Primitives",
+    "Suites numériques", "Angles orientés", "Angles associés",
+    "Formules d'addition et de transformation",
+    "Équations et inéquations trigonométriques", "Barycentre",
+    "Transformations du plan et isométries",
+    "Représentation graphique de fonctions et transformations du plan",
+    "Étude de fonctions numériques de variable réelle"],
   "Tle AB": ["Généralités sur les fonctions", "Limite et continuité", "Dérivation",
-    "Fonctions polynômes", "Fonctions rationnelles", "Logarithme népérien",
-    "Exponentielle népérienne", "Équations — Inéquations — Systèmes",
+    "Fonctions polynômes", "Fonctions rationnelles",
+    "Résolution de problèmes conduisant à l'étude d'une fonction polynôme ou rationnelle",
+    "Logarithme népérien", "Exponentielle népérienne",
+    "Fonctions comportant logarithme ou exponentielle",
+    "Entiers naturels", "Équations — Inéquations — Systèmes",
     "Suites numériques", "Statistique", "Probabilité"],
-  "Tle C": ["Calcul vectoriel dans l'espace", "Systèmes linéaires", "Arithmétique",
-    "Nombres complexes", "Limites et continuité", "Étude de fonctions",
-    "Primitives", "Logarithme népérien", "Exponentielle népérienne",
+  "Tle C": ["Calcul vectoriel dans l'espace", "Applications de l'espace",
+    "Systèmes linéaires", "Arithmétique", "Nombres complexes",
+    "Limites et continuité", "Étude de fonctions", "Primitives",
+    "Logarithme népérien", "Exponentielle népérienne", "Fonctions puissances",
     "Calcul intégral", "Équations différentielles", "Probabilité",
-    "Suites numériques", "Isométries du plan", "Similitudes", "Coniques"],
-  "Tle D": ["Vecteurs de l'espace", "Barycentre", "Droites et plans de l'espace",
-    "Systèmes linéaires", "Produit scalaire", "Produit vectoriel",
-    "Nombres complexes", "Limites et continuité", "Étude de fonctions",
-    "Primitives", "Logarithme népérien", "Exponentielle népérienne",
-    "Calcul intégral", "Équations différentielles", "Probabilité",
-    "Suites numériques", "Statistique",
+    "Suites numériques", "Isométries du plan", "Applications affines",
+    "Similitudes", "Coniques"],
+  "Tle D": ["Vecteurs de l'espace", "Barycentre",
+    "Représentations paramétriques d'une droite et d'un plan dans l'espace",
+    "Équation cartésienne d'un plan",
+    "Système d'équations cartésiennes d'une droite de l'espace",
+    "Systèmes linéaires", "Produit scalaire",
+    "Produit vectoriel", "Nombres complexes", "Limites et continuité",
+    "Étude de fonctions", "Primitives", "Logarithme népérien",
+    "Exponentielle népérienne", "Fonctions puissances", "Calcul intégral",
+    "Équations différentielles", "Probabilité", "Suites numériques", "Statistique",
     "Application des nombres complexes aux transformations du plan"],
 };
 
@@ -92,77 +135,77 @@ const MATHEMATIQUES_NOTIONS: Record<string, string[]> = {
 // 2026-2027 (toutes classes, DIPIQ). Mêmes chaînes de notions que
 // MATHEMATIQUES_NOTIONS (aucune notion renommée/ajoutée : seul un
 // regroupement est ajouté, pour ne rien changer au texte envoyé au modèle).
-// Chaque notion est son propre groupe à un seul "item" (pas de sous-détail
-// Activités pour l'instant côté épreuve -- réservé au mode Exercice,
-// structure à 3 niveaux SA/Séquence/Activités, à construire séparément).
+// Chaque notion est son propre groupe à un seul "item" -- utilisé comme
+// repli à 1 niveau pour les classes sans sommaire de manuel détaillé dans
+// MATHS_SEQ_ACTIVITES_DETAILS ci-dessous (ex. "6e": MATHS_SA_DETAILS["6e"]).
 type MathSaSeq = { label: string; items: string[] };
 const _mathSeq = (notions: string[]): MathSaSeq[] => notions.map((n) => ({ label: n, items: [n] }));
 
 const MATHS_SA_DETAILS: Record<string, Record<string, SaGroup[]>> = {
   "6e": {
     "Configurations de l'espace": _mathSeq(["Cube et pavé droit", "Cône de révolution", "Sphère"]),
-    "Configurations du plan": _mathSeq(["Droites du plan", "Cercles", "Angles", "Triangles", "Parallélogramme", "Entiers naturels", "Nombres décimaux", "Fractions", "Calcul littéral"]),
-    "Applications du plan": _mathSeq(["Symétrie axiale", "Symétrie centrale"]),
+    "Configurations du plan": _mathSeq(["Droites du plan", "Segments de droites", "Cercles", "Angles", "Triangles", "Parallélogramme", "Entiers naturels", "Nombres décimaux", "Fractions", "Calcul littéral"]),
+    "Applications du plan": _mathSeq(["Symétrie axiale", "Symétrie centrale", "Glissement"]),
     "Organisation des données": _mathSeq(["Proportionnalité", "Statistique"]),
   },
   "5e": {
     "Configurations de l'espace": _mathSeq(["Prisme droit", "Division dans ℕ", "Nombres premiers", "Puissances", "PPCM", "PGCD"]),
-    "Configurations du plan": _mathSeq(["Distance", "Angles", "Triangles", "Cercle", "Parallélogramme", "Nombres décimaux relatifs", "Fractions"]),
-    "Applications du plan": _mathSeq(["Symétrie axiale", "Symétrie centrale"]),
+    "Configurations du plan": _mathSeq(["Distance", "Angles", "Triangles", "Cercle", "Parallélogramme", "Polygones particuliers", "Nombres décimaux relatifs", "Fractions"]),
+    "Applications du plan": _mathSeq(["Symétrie axiale", "Symétrie centrale", "Glissement"]),
     "Organisation des données": _mathSeq(["Équations", "Proportionnalité"]),
   },
   "4e": {
-    "Configurations du plan": _mathSeq(["Angles au centre d'un cercle", "Distance", "Triangles", "Polygones réguliers", "Nombres rationnels", "Puissances", "Expressions algébriques"]),
-    "Configurations de l'espace": _mathSeq(["Pyramide", "Cône de révolution", "Sphère et boule", "PPCM et PGCD"]),
-    "Applications du plan": _mathSeq(["Symétrie centrale", "Translation", "Projection"]),
+    "Configurations du plan": _mathSeq(["Angles au centre d'un cercle", "Distance", "Triangles", "Polygones réguliers", "Nombres décimaux", "Nombres rationnels", "Puissances", "Expressions algébriques"]),
+    "Configurations de l'espace": _mathSeq(["Pyramide", "Cône de révolution", "Représentation en perspective cavalière", "Sphère et boule", "Notion de plan et de droite de l'espace", "PPCM et PGCD"]),
+    "Applications du plan": _mathSeq(["Symétrie centrale", "Symétrie orthogonale", "Translation", "Projection"]),
     "Organisation des données": _mathSeq(["Équations et inéquations", "Proportionnalité", "Statistique"]),
   },
   "3e": {
     "Triangles": _mathSeq(["Nombres réels", "Valeur absolue", "Trigonométrie", "Théorème de Thalès", "Triangles semblables", "Triangle rectangle", "Angles et cercles"]),
-    "Configurations de l'espace": _mathSeq(["Cône de révolution"]),
+    "Configurations de l'espace": _mathSeq(["Cône de révolution", "Sections planes"]),
     "Calcul littéral": _mathSeq(["Polynômes", "Équations de droite", "Équations et inéquations", "Vecteurs", "Coordonnées de vecteurs"]),
     "Organisation des données": _mathSeq(["Applications affines", "Applications linéaires", "Statistiques"]),
   },
   "2nde AB": {
     "Organisation des données": _mathSeq(["Proportionnalité", "Fonctions numériques", "Suites numériques", "Dénombrement"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Nombres réels", "Calculs dans ℝ", "Équations du premier degré dans ℝ", "Inéquations du premier degré dans ℝ", "Systèmes d'équations linéaires", "Représentation graphique de fonctions"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Nombres réels", "Calculs dans ℝ", "Équations du premier degré dans ℝ", "Inéquations du premier degré dans ℝ", "Équations linéaires dans ℝ×ℝ", "Systèmes d'équations linéaires", "Représentation graphique de fonctions"]),
   },
   "2nde C": {
-    "Configurations de l'espace": _mathSeq(["Droites et plans de l'espace", "Parallélisme", "La sphère"]),
-    "Organisation des données": _mathSeq(["Calculs dans ℝ", "Généralités sur les fonctions", "Étude de fonctions", "Équations et inéquations dans ℝ", "Statistique", "Polynômes"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Vecteurs du plan", "Droites dans le plan", "Homothétie", "Angles inscrits", "Trigonométrie", "Produit scalaire", "Rotation", "Cercles dans le plan"]),
+    "Configurations de l'espace": _mathSeq(["Représentation dans le plan d'objets de l'espace", "Positions relatives d'une droite et d'un plan de l'espace", "Positions relatives de deux plans de l'espace", "Positions relatives de deux droites de l'espace", "Étude du parallélisme de droites et plans de l'espace", "La sphère"]),
+    "Organisation des données": _mathSeq(["Calculs dans ℝ", "Généralités sur les fonctions", "Applications", "Étude de fonctions", "Équations et inéquations dans ℝ", "Statistique", "Polynômes", "Équations et inéquations dans ℝ×ℝ"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Vecteurs du plan", "Droites dans le plan", "Homothétie", "Symétrie orthogonale – symétrie centrale – translation", "Angles inscrits", "Angles orientés", "Trigonométrie", "Produit scalaire", "Rotation", "Cercles dans le plan"]),
   },
   "2nde D": {
-    "Configurations de l'espace": _mathSeq(["Droites et plans de l'espace", "Parallélisme"]),
-    "Organisation des données": _mathSeq(["Calculs dans ℝ", "Généralités sur les fonctions", "Étude de fonctions", "Équations et inéquations dans ℝ", "Statistique", "Polynômes"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Vecteurs du plan", "Droites dans le plan", "Homothétie", "Relations métriques dans un triangle", "Trigonométrie", "Produit scalaire", "Rotation", "Équation cartésienne d'un cercle"]),
+    "Configurations de l'espace": _mathSeq(["Représentation dans le plan d'objets de l'espace", "Positions relatives d'une droite et d'un plan de l'espace", "Positions relatives de deux plans de l'espace", "Positions relatives de deux droites de l'espace", "Étude du parallélisme de droites et plans de l'espace"]),
+    "Organisation des données": _mathSeq(["Calculs dans ℝ", "Généralités sur les fonctions", "Applications", "Étude de fonctions", "Équations et inéquations dans ℝ", "Statistique", "Polynômes", "Équations et inéquations dans ℝ×ℝ"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Vecteurs du plan", "Droites dans le plan", "Homothétie", "Symétrie orthogonale – symétrie centrale – translation", "Angles inscrits", "Relations métriques dans un triangle", "Angles orientés", "Trigonométrie", "Produit scalaire", "Rotation", "Équation cartésienne d'un cercle"]),
   },
   "1ère AB": {
-    "Organisation des données": _mathSeq(["Équations du second degré", "Somme et produit des racines", "Équations bicarrées", "Inéquations du second degré", "Systèmes linéaires dans ℝ²", "Suites arithmétiques", "Suites géométriques", "Statistique", "Dénombrement"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Fonctions numériques", "Limite et continuité", "Dérivation", "Fonctions polynômes", "Fonctions homographiques"]),
+    "Organisation des données": _mathSeq(["Équations du second degré", "Somme et produit des racines", "Équations bicarrées", "Inéquations du second degré", "Inéquation bicarrée", "Systèmes linéaires dans ℝ²", "Système d'inéquations linéaires dans ℝ²", "Suites arithmétiques", "Suites géométriques", "Statistique", "Dénombrement"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Fonctions numériques", "Limite et continuité", "Dérivation", "Étude des fonctions x→1/x, x→x² et x→√x", "Étude des fonctions x→xⁿ et x→x^(1/n)", "Représentation graphique de g : x→f(x-α)+β", "Fonctions polynômes", "Fonctions homographiques"]),
   },
   "1ère C": {
-    "Configurations de l'espace": _mathSeq(["Orthogonalité dans l'espace", "Projection orthogonale", "Vecteurs de l'espace", "Produit scalaire", "Géométrie analytique"]),
-    "Organisation des données": _mathSeq(["Équations et inéquations dans ℝ", "Statistique", "Dénombrement", "Limite et continuité", "Dérivation", "Primitives", "Suites numériques"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Angles orientés", "Fonctions circulaires", "Trigonométrie", "Barycentre", "Isométries du plan", "Similitudes"]),
+    "Configurations de l'espace": _mathSeq(["Droites orthogonales", "Droites et plans orthogonaux", "Plans perpendiculaires", "Projection orthogonale sur un plan", "Projection orthogonale sur une droite", "Vecteurs de l'espace", "Produit scalaire", "Géométrie analytique"]),
+    "Organisation des données": _mathSeq(["Équations et inéquations dans ℝ", "Statistique", "Dénombrement", "Fonctions et applications", "Limite et continuité", "Extension de la notion de limite", "Dérivation", "Primitives", "Suites numériques"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Angles orientés", "Angles associés", "Formules d'addition et de transformation", "Fonctions circulaires", "Équations et inéquations trigonométriques", "Barycentre", "Orthogonalité, droite et cercle dans le plan", "Les translations", "Les symétries orthogonales et les rotations", "Isométries du plan", "Similitudes", "Représentations graphiques de fonctions et transformations du plan"]),
   },
   "1ère D": {
-    "Configurations de l'espace": _mathSeq(["Orthogonalité dans l'espace", "Vecteurs de l'espace"]),
-    "Organisation des données": _mathSeq(["Équations et inéquations dans ℝ", "Systèmes linéaires", "Statistique", "Dénombrement", "Fonctions numériques", "Limites et continuité", "Dérivation", "Primitives", "Suites numériques"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Angles orientés", "Trigonométrie", "Barycentre", "Transformations du plan"]),
+    "Configurations de l'espace": _mathSeq(["Droites orthogonales", "Droites et plans orthogonaux", "Plans perpendiculaires", "Projection orthogonale sur un plan", "Projection orthogonale sur une droite", "Vecteurs de l'espace"]),
+    "Organisation des données": _mathSeq(["Équations et inéquations dans ℝ", "Systèmes linéaires", "Statistique", "Dénombrement", "Fonctions numériques", "Limites et continuité", "Extension de la notion de limite", "Dérivation", "Primitives", "Suites numériques"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Angles orientés", "Angles associés", "Formules d'addition et de transformation", "Équations et inéquations trigonométriques", "Barycentre", "Transformations du plan et isométries", "Représentation graphique de fonctions et transformations du plan", "Étude de fonctions numériques de variable réelle"]),
   },
   "Tle AB": {
-    "Lieux géométriques dans le plan": _mathSeq(["Généralités sur les fonctions", "Limite et continuité", "Dérivation", "Fonctions polynômes", "Fonctions rationnelles", "Logarithme népérien", "Exponentielle népérienne"]),
-    "Organisation des données": _mathSeq(["Équations — Inéquations — Systèmes", "Suites numériques", "Statistique", "Probabilité"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Généralités sur les fonctions", "Limite et continuité", "Dérivation", "Fonctions polynômes", "Fonctions rationnelles", "Résolution de problèmes conduisant à l'étude d'une fonction polynôme ou rationnelle", "Logarithme népérien", "Exponentielle népérienne", "Fonctions comportant logarithme ou exponentielle"]),
+    "Organisation des données": _mathSeq(["Entiers naturels", "Équations — Inéquations — Systèmes", "Suites numériques", "Statistique", "Probabilité"]),
   },
   "Tle C": {
-    "Configurations de l'espace": _mathSeq(["Calcul vectoriel dans l'espace"]),
-    "Organisation des données": _mathSeq(["Systèmes linéaires", "Arithmétique", "Nombres complexes", "Limites et continuité", "Étude de fonctions", "Primitives", "Logarithme népérien", "Exponentielle népérienne", "Calcul intégral", "Équations différentielles", "Probabilité", "Suites numériques"]),
-    "Lieux géométriques dans le plan": _mathSeq(["Isométries du plan", "Similitudes", "Coniques"]),
+    "Configurations de l'espace": _mathSeq(["Calcul vectoriel dans l'espace", "Applications de l'espace"]),
+    "Organisation des données": _mathSeq(["Systèmes linéaires", "Arithmétique", "Nombres complexes", "Limites et continuité", "Étude de fonctions", "Primitives", "Logarithme népérien", "Exponentielle népérienne", "Fonctions puissances", "Calcul intégral", "Équations différentielles", "Probabilité", "Suites numériques"]),
+    "Lieux géométriques dans le plan": _mathSeq(["Isométries du plan", "Applications affines", "Similitudes", "Coniques"]),
   },
   "Tle D": {
-    "Configurations de l'espace": _mathSeq(["Vecteurs de l'espace", "Barycentre", "Droites et plans de l'espace", "Systèmes linéaires", "Produit scalaire", "Produit vectoriel"]),
-    "Organisation des données": _mathSeq(["Nombres complexes", "Limites et continuité", "Étude de fonctions", "Primitives", "Logarithme népérien", "Exponentielle népérienne", "Calcul intégral", "Équations différentielles", "Probabilité", "Suites numériques", "Statistique"]),
+    "Configurations de l'espace": _mathSeq(["Vecteurs de l'espace", "Barycentre", "Représentations paramétriques d'une droite et d'un plan dans l'espace", "Équation cartésienne d'un plan", "Système d'équations cartésiennes d'une droite de l'espace", "Systèmes linéaires", "Produit scalaire", "Produit vectoriel"]),
+    "Organisation des données": _mathSeq(["Nombres complexes", "Limites et continuité", "Étude de fonctions", "Primitives", "Logarithme népérien", "Exponentielle népérienne", "Fonctions puissances", "Calcul intégral", "Équations différentielles", "Probabilité", "Suites numériques", "Statistique"]),
     "Lieux géométriques dans le plan": _mathSeq(["Application des nombres complexes aux transformations du plan"]),
   },
 };
@@ -187,13 +230,13 @@ const MATHS_SA_NUMBER: Record<string, Record<string, number>> = Object.fromEntri
 );
 
 // Variante à 3 niveaux (SA -> Notion -> Activités) de MATHS_SA_DETAILS
-// ci-dessus, réservée au mode EXERCICE (demande explicite utilisateur :
-// l'épreuve reste à 2 niveaux SA/Notion, l'exercice descend jusqu'aux
-// sous-activités du sommaire des manuels). Mêmes clés de SA/notion que
-// MATHS_SA_DETAILS (même source fiches 2026-2027) ; les sous-activités
-// viennent des sommaires de manuels collectés séparément et ne couvrent
-// pas toutes les notions -- une notion sans sous-détail retombe sur un
-// groupe à un seul item (elle-même), comme dans MATHS_SA_DETAILS.
+// ci-dessus, utilisée pour le picker Mathématiques en mode Épreuve ET en
+// mode Exercice (demande explicite utilisateur : même format de choix des
+// notions dans les deux modes). Mêmes clés de SA/notion que MATHS_SA_DETAILS
+// (même source fiches 2026-2027) ; les sous-activités viennent des
+// sommaires de manuels collectés séparément et ne couvrent pas toutes les
+// notions -- une notion sans sous-détail retombe sur un groupe à un seul
+// item (elle-même), comme dans MATHS_SA_DETAILS.
 const _mSeq = (notion: string, items?: string[]): MathSaSeq => ({ label: notion, items: items && items.length ? items : [notion] });
 
 const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
@@ -212,12 +255,14 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
       _mSeq("Triangles", ["Triangle isocèle", "Triangle équilatéral", "Triangle rectangle"]),
       _mSeq("Cercle"),
       _mSeq("Parallélogramme", ["Parallélogramme", "Rectangle", "Losange", "Carré"]),
+      _mSeq("Polygones particuliers"),
       _mSeq("Nombres décimaux relatifs", ["Présentation des nombres décimaux relatifs", "Droites graduées", "Comparaison de nombres décimaux relatifs", "Somme de nombres décimaux relatifs", "Différence de deux nombres décimaux relatifs", "Produit de deux nombres décimaux relatifs"]),
       _mSeq("Fractions", ["Fractions irréductibles", "Somme et différence de deux fractions", "Comparaison de deux fractions – Encadrement", "Produit de deux fractions"]),
     ],
     "Applications du plan": [
       _mSeq("Symétrie axiale", ["Définition et premières propriétés", "Nouvelles propriétés"]),
       _mSeq("Symétrie centrale", ["Définition et premières propriétés", "Nouvelles propriétés"]),
+      _mSeq("Glissement"),
     ],
     "Organisation des données": [
       _mSeq("Équations", ["Équation du type x + b = a"]),
@@ -230,16 +275,19 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
       _mSeq("Distance", ["Distances et droites", "Points équidistants de deux droites", "Cercles et droites"]),
       _mSeq("Triangles", ["Droite des milieux", "Droites particulières d'un triangle", "Droites particulières d'un triangle isocèle", "Propriétés métriques du triangle rectangle"]),
       _mSeq("Polygones réguliers"),
+      _mSeq("Nombres décimaux"),
       _mSeq("Nombres rationnels", ["Fractions", "PGCD-PPCM", "Opérations sur les nombres rationnels"]),
       _mSeq("Puissances", ["Puissances de 10", "Nombres décimaux et puissances de 10", "Approximations décimales"]),
       _mSeq("Expressions algébriques", ["Expressions littérales", "Sommes algébriques", "Produits et puissances", "Calcul littéral"]),
     ],
     "Configurations de l'espace": [
       _mSeq("Pyramide", ["Prismes et pyramides", "Représentation d'un objet de l'espace", "Solides de révolution", "Volumes et aires"]),
-      _mSeq("Cône de révolution"), _mSeq("Sphère et boule"), _mSeq("PPCM et PGCD"),
+      _mSeq("Cône de révolution"), _mSeq("Représentation en perspective cavalière"),
+      _mSeq("Sphère et boule"), _mSeq("Notion de plan et de droite de l'espace"), _mSeq("PPCM et PGCD"),
     ],
     "Applications du plan": [
       _mSeq("Symétrie centrale", ["Notion d'application", "Propriétés des symétries", "Utilisation de symétries"]),
+      _mSeq("Symétrie orthogonale"),
       _mSeq("Translation", ["Translations", "Vecteurs", "Translations et vecteurs"]),
       _mSeq("Projection", ["Projection", "Repérage dans le plan"]),
     ],
@@ -258,7 +306,10 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
       _mSeq("Triangles semblables"), _mSeq("Triangle rectangle"),
       _mSeq("Angles et cercles", ["Angles inscrits dans un cercle", "Angles inscrits et configurations du plan"]),
     ],
-    "Configurations de l'espace": [_mSeq("Cône de révolution", ["Pyramides et cônes", "Sections planes"])],
+    "Configurations de l'espace": [
+      _mSeq("Cône de révolution", ["Pyramides et cônes"]),
+      _mSeq("Sections planes"),
+    ],
     "Calcul littéral": [
       _mSeq("Polynômes", ["Quotients", "Calcul littéral", "Exemples d'expressions littérales"]),
       _mSeq("Équations de droite", ["Équation du premier degré dans ℝ×ℝ", "Équations d'une droite", "Positions relatives de deux droites"]),
@@ -275,23 +326,30 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
   "2nde AB": MATHS_SA_DETAILS["2nde AB"], // pas de sommaire de manuel détaillé disponible -- repli 1 niveau
   "2nde C": {
     "Configurations de l'espace": [
-      _mSeq("Droites et plans de l'espace", ["Positions relatives de droites et de plans de l'espace"]),
-      _mSeq("Parallélisme", ["Étude du parallélisme"]),
+      _mSeq("Représentation dans le plan d'objets de l'espace"),
+      _mSeq("Positions relatives d'une droite et d'un plan de l'espace"),
+      _mSeq("Positions relatives de deux plans de l'espace"),
+      _mSeq("Positions relatives de deux droites de l'espace"),
+      _mSeq("Étude du parallélisme de droites et plans de l'espace", ["Étude du parallélisme"]),
       _mSeq("La sphère"),
     ],
     "Organisation des données": [
       _mSeq("Calculs dans ℝ", ["Nombres rationnels et irrationnels", "Ordre dans ℝ", "Valeur absolue"]),
       _mSeq("Généralités sur les fonctions", ["Généralités sur les fonctions", "Étude graphique", "Variations d'une fonction"]),
+      _mSeq("Applications"),
       _mSeq("Étude de fonctions", ["Fonctions affines par intervalles", "Fonctions de référence", "Utilisation des fonctions de référence"]),
       _mSeq("Équations et inéquations dans ℝ", ["Généralités", "Équations et inéquations liant deux polynômes", "Équations et inéquations liant deux fractions rationnelles", "Équations et inéquations avec valeurs absolues"]),
       _mSeq("Statistique", ["Organisation des données", "Graphiques", "Caractéristiques de position", "Caractéristiques de dispersion"]),
       _mSeq("Polynômes", ["Généralités sur les polynômes", "Polynômes du second degré", "Factorisation par x - α", "Fractions rationnelles"]),
+      _mSeq("Équations et inéquations dans ℝ×ℝ"),
     ],
     "Lieux géométriques dans le plan": [
       _mSeq("Vecteurs du plan", ["Vecteurs", "Mesure algébrique", "Bases et repères"]),
       _mSeq("Droites dans le plan", ["Droites"]),
       _mSeq("Homothétie", ["Homothétie", "Propriétés de l'homothétie", "Caractérisations d'une homothétie"]),
+      _mSeq("Symétrie orthogonale – symétrie centrale – translation"),
       _mSeq("Angles inscrits", ["Angles inscrits", "Lieu géométrique des points M tels que mes AMB = θ°", "Quadrilatères inscriptibles", "Relations métriques dans un triangle", "Polygones réguliers"]),
+      _mSeq("Angles orientés"),
       _mSeq("Trigonométrie", ["Compléments sur les angles", "Trigonométrie"]),
       _mSeq("Produit scalaire", ["Définitions et premières propriétés", "Propriétés du produit scalaire", "Relations métriques dans un triangle", "Forme analytique du produit scalaire"]),
       _mSeq("Rotation"),
@@ -300,22 +358,30 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
   },
   "2nde D": {
     "Configurations de l'espace": [
-      _mSeq("Droites et plans de l'espace", ["Positions relatives de droites et de plans de l'espace"]),
-      _mSeq("Parallélisme", ["Étude du parallélisme"]),
+      _mSeq("Représentation dans le plan d'objets de l'espace"),
+      _mSeq("Positions relatives d'une droite et d'un plan de l'espace"),
+      _mSeq("Positions relatives de deux plans de l'espace"),
+      _mSeq("Positions relatives de deux droites de l'espace"),
+      _mSeq("Étude du parallélisme de droites et plans de l'espace", ["Étude du parallélisme"]),
     ],
     "Organisation des données": [
       _mSeq("Calculs dans ℝ", ["Nombres rationnels et irrationnels", "Ordre dans ℝ", "Valeur absolue"]),
       _mSeq("Généralités sur les fonctions", ["Généralités sur les fonctions", "Étude graphique", "Variations d'une fonction"]),
+      _mSeq("Applications"),
       _mSeq("Étude de fonctions", ["Fonctions affines par intervalles", "Fonctions de référence", "Utilisation des fonctions de référence"]),
       _mSeq("Équations et inéquations dans ℝ", ["Généralités", "Équations et inéquations liant deux polynômes", "Équations et inéquations liant deux fractions rationnelles", "Équations et inéquations avec valeurs absolues"]),
       _mSeq("Statistique", ["Organisation des données", "Graphiques", "Caractéristiques de position", "Caractéristiques de dispersion"]),
       _mSeq("Polynômes", ["Généralités sur les polynômes", "Polynômes du second degré", "Factorisation par x - α", "Fractions rationnelles"]),
+      _mSeq("Équations et inéquations dans ℝ×ℝ"),
     ],
     "Lieux géométriques dans le plan": [
       _mSeq("Vecteurs du plan", ["Vecteurs", "Mesure algébrique", "Bases et repères"]),
       _mSeq("Droites dans le plan", ["Droites"]),
       _mSeq("Homothétie", ["Homothétie", "Propriétés de l'homothétie", "Caractérisations d'une homothétie"]),
+      _mSeq("Symétrie orthogonale – symétrie centrale – translation"),
+      _mSeq("Angles inscrits"),
       _mSeq("Relations métriques dans un triangle"),
+      _mSeq("Angles orientés"),
       _mSeq("Trigonométrie", ["Compléments sur les angles", "Trigonométrie"]),
       _mSeq("Produit scalaire", ["Définitions et premières propriétés", "Propriétés du produit scalaire", "Forme analytique du produit scalaire"]),
       _mSeq("Rotation"),
@@ -326,7 +392,8 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
     "Organisation des données": [
       _mSeq("Équations du second degré", ["Équations du second degré", "Résolution de problèmes"]),
       _mSeq("Somme et produit des racines"), _mSeq("Équations bicarrées"),
-      _mSeq("Inéquations du second degré"), _mSeq("Systèmes linéaires dans ℝ²"),
+      _mSeq("Inéquations du second degré"), _mSeq("Inéquation bicarrée"),
+      _mSeq("Systèmes linéaires dans ℝ²"), _mSeq("Système d'inéquations linéaires dans ℝ²"),
       _mSeq("Suites arithmétiques", ["Généralités", "Suites arithmétiques, suites géométriques"]),
       _mSeq("Suites géométriques"),
       _mSeq("Statistique", ["Caractéristiques d'une série statistique", "Séries à modalités regroupées en classes", "Exemples de séries chronologiques"]),
@@ -336,39 +403,57 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
       _mSeq("Fonctions numériques", ["Fonctions élémentaires", "Fonctions et transformations du plan", "Parité et éléments de symétrie"]),
       _mSeq("Limite et continuité", ["Notion de limite"]),
       _mSeq("Dérivation", ["Compléments sur les droites", "Dérivation en x0", "Calculs de dérivées"]),
+      _mSeq("Étude des fonctions x→1/x, x→x² et x→√x"),
+      _mSeq("Étude des fonctions x→xⁿ et x→x^(1/n)"),
+      _mSeq("Représentation graphique de g : x→f(x-α)+β"),
       _mSeq("Fonctions polynômes", ["Applications de la dérivation", "Étude de fonctions polynômes et homographiques", "Résolution de problèmes"]),
       _mSeq("Fonctions homographiques"),
     ],
   },
   "1ère C": {
     "Configurations de l'espace": [
-      _mSeq("Orthogonalité dans l'espace", ["Droites et plans orthogonaux", "Plans perpendiculaires"]),
-      _mSeq("Projection orthogonale"),
+      _mSeq("Droites orthogonales"),
+      _mSeq("Droites et plans orthogonaux"),
+      _mSeq("Plans perpendiculaires"),
+      _mSeq("Projection orthogonale sur un plan"),
+      _mSeq("Projection orthogonale sur une droite"),
       _mSeq("Vecteurs de l'espace", ["Extension à l'espace de la notion de vecteur", "Bases et repères"]),
       _mSeq("Produit scalaire"),
-      _mSeq("Géométrie analytique", ["Équations cartésiennes", "Représentations paramétriques", "Positions relatives de droites et plans", "Orthogonalité et droites du plan"]),
+      _mSeq("Géométrie analytique", ["Équations cartésiennes", "Représentations paramétriques", "Positions relatives de droites et plans"]),
     ],
     "Organisation des données": [
       _mSeq("Équations et inéquations dans ℝ", ["Problèmes du second degré", "Équations et inéquations se ramenant au second degré", "Systèmes linéaires d'équations et d'inéquations"]),
       _mSeq("Statistique", ["Séries statistiques présentant un regroupement en classes", "Séries statistiques à deux caractères"]),
       _mSeq("Dénombrement", ["Premiers outils pour dénombrer", "Compléments sur les ensembles", "p-uplets, arrangements, permutations", "Combinaisons", "Problèmes de dénombrement"]),
+      _mSeq("Fonctions et applications"),
       _mSeq("Limite et continuité", ["Approche intuitive de la notion de limite", "Calculs de limites", "Continuité"]),
+      _mSeq("Extension de la notion de limite"),
       _mSeq("Dérivation", ["Dérivation en x0", "Calculs de dérivées", "Applications de la dérivation"]),
       _mSeq("Primitives"),
       _mSeq("Suites numériques", ["Généralités", "Étude d'une suite numérique", "Suites arithmétiques, suites géométriques"]),
     ],
     "Lieux géométriques dans le plan": [
       _mSeq("Angles orientés", ["Angles orientés", "Propriétés des angles orientés"]),
+      _mSeq("Angles associés"),
+      _mSeq("Formules d'addition et de transformation"),
       _mSeq("Fonctions circulaires", ["Fonctions trigonométriques"]),
-      _mSeq("Trigonométrie", ["Trigonométrie", "Équations trigonométriques", "Inéquations trigonométriques"]),
+      _mSeq("Équations et inéquations trigonométriques", ["Équations trigonométriques", "Inéquations trigonométriques"]),
       _mSeq("Barycentre", ["Barycentre de deux points pondérés", "Barycentre de plus de deux points pondérés", "Utilisations du barycentre"]),
+      _mSeq("Orthogonalité, droite et cercle dans le plan", ["Orthogonalité et droites du plan"]),
+      _mSeq("Les translations"),
+      _mSeq("Les symétries orthogonales et les rotations"),
       _mSeq("Isométries du plan", ["Translations et symétries orthogonales", "Rotations", "Isométries", "Compléments sur les isométries"]),
       _mSeq("Similitudes", ["Les homothéties et leurs utilisations", "Composition d'homothéties et d'isométries"]),
+      _mSeq("Représentations graphiques de fonctions et transformations du plan"),
     ],
   },
   "1ère D": {
     "Configurations de l'espace": [
-      _mSeq("Orthogonalité dans l'espace", ["Orthogonalité dans l'espace", "Projections orthogonales", "Vecteurs et configurations de l'espace"]),
+      _mSeq("Droites orthogonales"),
+      _mSeq("Droites et plans orthogonaux"),
+      _mSeq("Plans perpendiculaires"),
+      _mSeq("Projection orthogonale sur un plan"),
+      _mSeq("Projection orthogonale sur une droite"),
       _mSeq("Vecteurs de l'espace", ["Vecteurs et configurations de l'espace"]),
     ],
     "Organisation des données": [
@@ -378,28 +463,36 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
       _mSeq("Dénombrement", ["Dénombrement de parties d'ensembles finis", "Dénombrement de listes", "Dénombrement d'arrangements et de permutations", "Dénombrement de combinaisons"]),
       _mSeq("Fonctions numériques", ["Généralités sur les fonctions", "Opérations sur les fonctions", "Applications bijectives"]),
       _mSeq("Limites et continuité", ["Limite et continuité en a", "Limite à gauche, limite à droite"]),
+      _mSeq("Extension de la notion de limite"),
       _mSeq("Dérivation", ["Dérivation en a", "Calcul de la dérivée", "Dérivée et sens de variation"]),
       _mSeq("Primitives"),
       _mSeq("Suites numériques", ["Généralités", "Étude d'une suite numérique", "Suites arithmétiques – suites géométriques"]),
     ],
     "Lieux géométriques dans le plan": [
       _mSeq("Angles orientés", ["Mesure d'un angle orienté"]),
-      _mSeq("Trigonométrie", ["Fonctions cosinus, sinus et tangente", "Formules trigonométriques", "Résolution d'équations trigonométriques"]),
+      _mSeq("Angles associés"),
+      _mSeq("Formules d'addition et de transformation"),
+      _mSeq("Équations et inéquations trigonométriques", ["Fonctions cosinus, sinus et tangente", "Formules trigonométriques", "Résolution d'équations trigonométriques"]),
       _mSeq("Barycentre", ["Barycentres", "Lignes de niveau", "Cercle"]),
-      _mSeq("Transformations du plan", ["Isométries", "Similitudes", "Utilisation des transformations du plan"]),
+      _mSeq("Transformations du plan et isométries", ["Isométries", "Utilisation des transformations du plan"]),
+      _mSeq("Représentation graphique de fonctions et transformations du plan"),
+      _mSeq("Étude de fonctions numériques de variable réelle"),
     ],
   },
   "Tle AB": {
     "Lieux géométriques dans le plan": [
-      _mSeq("Généralités sur les fonctions", ["Généralités", "Notions de limite et de continuité", "Dérivation"]),
+      _mSeq("Généralités sur les fonctions", ["Généralités"]),
       _mSeq("Limite et continuité", ["Notions de limite et de continuité"]),
-      _mSeq("Dérivation"),
+      _mSeq("Dérivation", ["Dérivation"]),
       _mSeq("Fonctions polynômes", ["Fonctions polynômes", "Résolution de problèmes"]),
       _mSeq("Fonctions rationnelles"),
-      _mSeq("Logarithme népérien", ["Fonction logarithme népérien", "Fonctions comportant ln ou exp"]),
+      _mSeq("Résolution de problèmes conduisant à l'étude d'une fonction polynôme ou rationnelle"),
+      _mSeq("Logarithme népérien", ["Fonction logarithme népérien"]),
       _mSeq("Exponentielle népérienne", ["Fonction exponentielle népérienne"]),
+      _mSeq("Fonctions comportant logarithme ou exponentielle", ["Fonctions comportant ln ou exp"]),
     ],
     "Organisation des données": [
+      _mSeq("Entiers naturels"),
       _mSeq("Équations — Inéquations — Systèmes", ["Problèmes du premier ou du second degré à une inconnue", "Systèmes d'équations et d'inéquations", "Équations et inéquations comportant ln et exp"]),
       _mSeq("Suites numériques", ["Suites arithmétiques, suites géométriques", "Variation d'une suite numérique", "Notion de limite d'une suite numérique", "Applications des suites"]),
       _mSeq("Statistique", ["Représentations graphiques de séries statistiques", "Indicateurs d'une série statistique", "Séries statistiques à deux caractères"]),
@@ -407,7 +500,10 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
     ],
   },
   "Tle C": {
-    "Configurations de l'espace": [_mSeq("Calcul vectoriel dans l'espace", ["Barycentre de n points pondérés", "Lignes de niveau", "Produit vectoriel", "Projections", "Translations et homothéties", "Symétries orthogonales"])],
+    "Configurations de l'espace": [
+      _mSeq("Calcul vectoriel dans l'espace", ["Barycentre de n points pondérés", "Lignes de niveau", "Produit vectoriel"]),
+      _mSeq("Applications de l'espace", ["Projections", "Translations et homothéties", "Symétries orthogonales"]),
+    ],
     "Organisation des données": [
       _mSeq("Systèmes linéaires"),
       _mSeq("Arithmétique", ["Les ensembles ℕ et ℤ", "Divisibilité dans ℤ", "PPCM et PGCD", "Nombres premiers"]),
@@ -416,14 +512,16 @@ const MATHS_SEQ_ACTIVITES_DETAILS: Record<string, Record<string, SaGroup[]>> = {
       _mSeq("Étude de fonctions", ["Dérivation", "Études de fonctions"]),
       _mSeq("Primitives", ["Primitives d'une fonction", "Fonction logarithme népérien", "Fonctions comportant ln", "Logarithme décimal"]),
       _mSeq("Logarithme népérien", ["Fonction logarithme népérien"]),
-      _mSeq("Exponentielle népérienne", ["Fonction exponentielle", "Fonctions comportant exp", "Fonctions puissances"]),
+      _mSeq("Exponentielle népérienne", ["Fonction exponentielle", "Fonctions comportant exp"]),
+      _mSeq("Fonctions puissances"),
       _mSeq("Calcul intégral", ["Intégrale d'une fonction continue", "Techniques de calcul intégral", "Applications du calcul intégral"]),
       _mSeq("Équations différentielles", ["Généralités", "Équations du type y' - ay = 0", "Équations du type y'' + ay' + by = 0"]),
       _mSeq("Probabilité", ["Analyse combinatoire", "Calculs de probabilités", "Variable aléatoire"]),
-      _mSeq("Suites numériques", ["Étude globale d'une suite numérique", "Limite d'une suite numérique", "Compléments sur les suites"]),
+      _mSeq("Suites numériques", ["Étude globale d'une suite numérique : Suites Arithmétiques & Suites Géométriques", "Limite d'une suite numérique", "Compléments sur les suites"]),
     ],
     "Lieux géométriques dans le plan": [
-      _mSeq("Isométries du plan", ["Composition d'isométries", "Classification des isométries du plan", "Applications affines"]),
+      _mSeq("Isométries du plan", ["Composition d'isométries", "Classification des isométries du plan"]),
+      _mSeq("Applications affines"),
       _mSeq("Similitudes", ["Similitudes directes du plan", "Similitudes directes et problèmes de géométrie"]),
       _mSeq("Coniques", ["Étude générale des coniques", "Étude de la parabole", "Étude de l'ellipse", "Étude de l'hyperbole"]),
     ],
@@ -479,221 +577,432 @@ type SaGroup = { label: string; items: string[] };
 
 const PCT_SA_DETAILS: Record<string, Record<string, SaGroup[]>> = {
   "6e": {
+    // Regroupement par SÉQUENCE (demande explicite utilisateur, cf.
+    // PCT-Guide/6e/2_contenus_notionnels_6e.md déjà validé) -- remplace
+    // l'ancien regroupement plat "Activités"/"Travaux pratiques" par SA.
+    // Les items restent les TEXTES EXACTS de PROGRAMME_PCT (pct.py) : le
+    // backend retrouve leur contenu précis par égalité exacte sur
+    // "{titre de SA} - {item}" (cf. pct.py::DEPTH, ACTIVITES_PCT). Les TP
+    // sont fusionnés dans le texte de l'Activité qu'ils accompagnent
+    // (jamais sélectionnables séparément), comme dans le corpus.
     "Le courant électrique": [
-      { label: "Activités", items: ["4.1 : Quelles sont les différentes parties d'une lampe électrique et d'une pile ?", "4.2 : Comment allume-t-on une lampe électrique avec une pile ?", "4.3 : Quel est le sens conventionnel du courant électrique continu ?", "4.4 : Tous les corps conduisent-ils le courant électrique ?", "4.5 : Quand dit-on qu'une pile est adaptée à une lampe électrique ?", "4.6 : Comment schématise-t-on un circuit électrique simple ?", "4.7 : Pourquoi et comment associe-t-on des piles en série ?", "4.8 : Comment et pourquoi associe-t-on des lampes électriques en série ou en parallèle ?", "4.9 : Quels sont les effets du court-circuit d'une lampe électrique dans un montage ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Alimentation d'une lampe électrique par une pile électrique", "TP 2 : Mise en évidence du sens du courant électrique continu", "TP 3 : Identification des conducteurs et des isolants électriques", "TP 4 : Adaptation de la tension du générateur à celle de la lampe électrique", "TP 5 : Association de piles et de lampes électriques (série, concordance, opposition, parallèle, court-circuit)"] },
+      { label: "Circuit électrique simple", items: ["4.1 : Quelles sont les différentes parties d'une lampe électrique et d'une pile ?", "4.2 : Comment allume-t-on une lampe électrique avec une pile ?", "4.3 : Quel est le sens conventionnel du courant électrique continu ?", "4.4 : Tous les corps conduisent-ils le courant électrique ?", "4.5 : Quand dit-on qu'une pile est adaptée à une lampe électrique ?", "4.6 : Comment schématise-t-on un circuit électrique simple ?"] },
+      { label: "Association de piles", items: ["4.7 : Pourquoi et comment associe-t-on des piles en série ?"] },
+      { label: "Association de lampes", items: ["4.8 : Comment et pourquoi associe-t-on des lampes électriques en série ou en parallèle ?", "4.9 : Quels sont les effets du court-circuit d'une lampe électrique dans un montage ?"] },
     ],
     "La fabrication d'une lampe de poche": [
-      { label: "Activités", items: ["1 : Fabrication d'une lampe de poche : éléments essentiels ; rôle des différentes parties ; notion de masse électrique et son symbole ; schéma normalisé du circuit d'une lampe torche", "2 : Réparation du circuit électrique d'un vélo : éléments essentiels ; types de pannes ; techniques d'intervention ; schéma normalisé du circuit d'une bicyclette"] },
+      { label: "Lampe de poche", items: ["1 : Fabrication d'une lampe de poche : éléments essentiels ; rôle des différentes parties ; notion de masse électrique et son symbole ; schéma normalisé du circuit d'une lampe torche"] },
+      { label: "Circuit d'un vélo", items: ["2 : Réparation du circuit électrique d'un vélo : éléments essentiels ; types de pannes ; techniques d'intervention ; schéma normalisé du circuit d'une bicyclette"] },
     ],
     "Quelques combustions vives": [
-      { label: "Activités", items: ["4.1 : Comment s'explique la combustion de la bougie ?", "4.2 : Comment s'explique la combustion du bois de chauffe ?", "4.3 : Comment s'explique la combustion du pétrole ?", "4.4 : Quels sont les produits issus de la combustion de la bougie et du bois de chauffe ?", "4.5 : Quels sont les constituants de l'air ?", "4.6 : Quelles sont les conditions d'activation ou de maîtrise d'un feu ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Combustion du bois de chauffe", "TP 2 : Combustion du pétrole", "TP 3 : Combustion de la bougie (parties de la flamme ; corps transformés ; corps formés)", "TP 4 : Activation et maîtrise d'une flamme"] },
+      { label: "Combustions vives", items: ["4.1 : Comment s'explique la combustion de la bougie ?", "4.2 : Comment s'explique la combustion du bois de chauffe ?", "4.3 : Comment s'explique la combustion du pétrole ?", "4.4 : Quels sont les produits issus de la combustion de la bougie et du bois de chauffe ?"] },
+      { label: "Composition de l'air", items: ["4.5 : Quels sont les constituants de l'air ?"] },
+      { label: "Triangle du feu", items: ["4.6 : Quelles sont les conditions d'activation ou de maîtrise d'un feu ?"] },
     ],
     "L'eau dans ses différents états physiques": [
-      { label: "Activités", items: ["4.1 : Quels sont les changements d'états physiques de l'eau ?", "4.2 : Quand est-ce que l'eau passe de l'état liquide à l'état solide ?", "4.3 : Quand est-ce que l'eau passe de l'état solide à l'état liquide ?", "4.4 : Quand est-ce que l'eau passe de l'état liquide à l'état vapeur et inversement ?", "4.5 : Comment s'effectue la sublimation du naphtalène ?", "1 : Les états physiques de l'eau : solide, liquide, gazeux", "2 : Changements d'états : solidification ; fusion de la glace ; vaporisation et évaporation ; condensation ; sublimation du diiode ou du naphtalène", "3 : Fabrication d'un distillateur : différentes parties et leur rôle", "4 : Fabrication d'un dispositif d'obtention de la glace : constituants ; rôle des parties ; mélange réfrigérant"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Changements d'état de l'eau (fusion, évaporation, vaporisation, solidification)", "TP 2 : Sublimation du naphtalène ou du diiode"] },
+      { label: "États de l'eau", items: ["1 : Les états physiques de l'eau : solide, liquide, gazeux"] },
+      { label: "Changements d'état", items: ["4.1 : Quels sont les changements d'états physiques de l'eau ?", "2 : Changements d'états : solidification ; fusion de la glace ; vaporisation et évaporation ; condensation ; sublimation du diiode ou du naphtalène", "4.2 : Quand est-ce que l'eau passe de l'état liquide à l'état solide ?", "4.3 : Quand est-ce que l'eau passe de l'état solide à l'état liquide ?", "4.4 : Quand est-ce que l'eau passe de l'état liquide à l'état vapeur et inversement ?", "4.5 : Comment s'effectue la sublimation du naphtalène ?"] },
+      { label: "Distillateur", items: ["3 : Fabrication d'un distillateur : différentes parties et leur rôle"] },
+      { label: "Dispositif à glace", items: ["4 : Fabrication d'un dispositif d'obtention de la glace : constituants ; rôle des parties ; mélange réfrigérant"] },
     ],
     "La pollution de l'air": [
-      { label: "Activités", items: ["7.1 : Quels sont les causes et les effets néfastes des feux de végétation, des pluies acides et des gaz d'échappement sur l'environnement ?", "7.2 : Quelles sont les conséquences des changements climatiques ?", "7.3 : Comment l'homme peut-il satisfaire ses besoins actuels relatifs à la combustion sans compromettre ceux des générations futures ?"] },
+      { label: "Pollution de l'air", items: ["7.1 : Quels sont les causes et les effets néfastes des feux de végétation, des pluies acides et des gaz d'échappement sur l'environnement ?", "7.2 : Quelles sont les conséquences des changements climatiques ?", "7.3 : Comment l'homme peut-il satisfaire ses besoins actuels relatifs à la combustion sans compromettre ceux des générations futures ?"] },
     ],
     "La fabrication d'un instrument de production de son": [
-      { label: "Activités", items: ["Fabrication d'objets acoustiques : instruments à membrane, à corde, à vent, de percussion"] },
+      { label: "Instruments de musique", items: ["Fabrication d'objets acoustiques : instruments à membrane, à corde, à vent, de percussion"] },
     ],
   },
   "5e": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/5e/2_contenus_notionnels_5e.md).
     "Le courant électrique alternatif": [
-      { label: "Activités", items: ["4.1 : Quelles sont les caractéristiques du courant électrique alternatif ?", "4.2 : Quelle utilisation fait-on du courant électrique alternatif ?", "4.3 : Quelles sont les propriétés d'un aimant ?", "4.4 : Quel est le comportement d'une bobine traversée par un courant électrique continu ?", "4.5 : Comment produire du courant électrique à l'aide d'une bobine et d'un aimant ?", "4.6 : Quelles sont les caractéristiques du courant électrique produit par un alternateur de bicyclette ?", "4.7 : Quelles sont les différentes parties et le rôle d'un tournevis testeur ?", "4.8 : Comment utilise-t-on le tournevis testeur pour identifier les bornes d'une prise de courant ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Caractérisation d'un aimant et d'une bobine", "TP 2 : Production du courant électrique à l'aide d'une bobine et d'un aimant", "TP 3 : Visualisation du courant produit par la génératrice d'une bicyclette", "TP 4 : Visualisation du courant électrique du secteur", "TP 5 : Identification des bornes d'une prise de courant à l'aide d'un tournevis testeur"] },
+      { label: "Courant alternatif", items: ["4.1 : Quelles sont les caractéristiques du courant électrique alternatif ?", "4.2 : Quelle utilisation fait-on du courant électrique alternatif ?"] },
+      { label: "Production du courant", items: ["4.3 : Quelles sont les propriétés d'un aimant ?", "4.4 : Quel est le comportement d'une bobine traversée par un courant électrique continu ?", "4.5 : Comment produire du courant électrique à l'aide d'une bobine et d'un aimant ?", "4.6 : Quelles sont les caractéristiques du courant électrique produit par un alternateur de bicyclette ?"] },
+      { label: "Tournevis testeur", items: ["4.7 : Quelles sont les différentes parties et le rôle d'un tournevis testeur ?", "4.8 : Comment utilise-t-on le tournevis testeur pour identifier les bornes d'une prise de courant ?"] },
     ],
     "Protection des personnes et des biens contre les dangers du courant électrique": [
-      { label: "Activités", items: ["7.1 : Quels sont les dangers du courant électrique et comment se manifestent-ils ?", "7.2 : Quels sont les moyens de protection des personnes et des biens contre les dangers du courant électrique ?", "7.3 : Quelles sont les conduites à tenir en cas d'urgence liée aux dangers du courant électrique ?"] },
+      { label: "Dangers du courant", items: ["7.1 (partie 1) : Quels sont les dangers du courant électrique sur le corps humain et comment se manifestent-ils ?"] },
+      { label: "Anomalies d'un circuit", items: ["7.1 (partie 2) : Quels sont les dangers du courant électrique liés aux anomalies d'un circuit (court-circuit, surcharge) ?"] },
+      { label: "Dispositifs de protection", items: ["7.2 : Quels sont les moyens de protection des personnes et des biens contre les dangers du courant électrique ?"] },
+      { label: "Urgences électriques", items: ["7.3 : Quelles sont les conduites à tenir en cas d'urgence liée aux dangers du courant électrique ?"] },
     ],
     "Structure de la matière": [
-      { label: "Activités", items: ["4.1 : Structure particulaire de la matière : atomes, molécules, symbole, formule chimique", "4.2 : Utilisation du modèle moléculaire (corps purs simples, composés et mélanges)", "4.3 : Quelles sont les différentes sortes de mélanges et comment séparer leurs constituants ?", "4.4 : Solution (soluté, solvant) : solution diluée, concentrée et saturée", "4.5 : La mole : masse molaire atomique, masse molaire moléculaire, volume molaire, concentration molaire", "4.6 : Comment déterminer les concentrations massique et molaire d'une solution aqueuse ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Utilisation du modèle moléculaire pour expliquer les structures des corps", "TP 2 : Identification des types de mélanges et séparation des constituants", "TP 3 : Préparation d'une solution aqueuse (diluée, concentrée, saturée)"] },
+      { label: "Atomes et molécules", items: ["4.1 : Structure particulaire de la matière : atomes, molécules, symbole, formule chimique", "4.2 : Utilisation du modèle moléculaire (corps purs simples, composés et mélanges)"] },
+      { label: "Mélanges et séparation", items: ["4.3 : Quelles sont les différentes sortes de mélanges et comment séparer leurs constituants ?"] },
+      { label: "Solutions", items: ["4.4 : Solution (soluté, solvant) : solution diluée, concentrée et saturée"] },
+      { label: "La mole", items: ["4.5 : La mole : masse molaire atomique, masse molaire moléculaire, volume molaire, concentration molaire", "4.6 : Comment déterminer les concentrations massique et molaire d'une solution aqueuse ?"] },
     ],
     "Propagation rectiligne de la lumière et applications": [
-      { label: "Activités", items: ["4.1 : Quelles sont les différentes sources et récepteurs de lumière ?", "4.2 : Comment se propage la lumière et qu'est-ce qu'un rayon lumineux ?", "4.3 : Qu'est-ce qu'un corps opaque, translucide et transparent ?", "4.4 : Qu'est-ce que la réflexion de la lumière, ses applications et les réflexions multiples ?", "4.5 : Comment explique-t-on l'image donnée par un miroir plan ?", "Sources et récepteurs de lumière ; corps opaques, translucides et transparents", "Propagation rectiligne de la lumière ; réflexion de la lumière et applications ; réflexions multiples", "Démarche technologique : fabrication d'un périscope à miroirs ou d'un kaléidoscope (principe de fonctionnement, étapes de fabrication)"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Identification des objets opaques, translucides et transparents", "TP 2 : Mise en évidence de la propagation rectiligne de la lumière", "TP 3 : Réflexion de la lumière"] },
+      { label: "Sources de lumière", items: ["4.1 : Quelles sont les différentes sources et récepteurs de lumière ?"] },
+      { label: "Propagation rectiligne", items: ["4.2 : Comment se propage la lumière et qu'est-ce qu'un rayon lumineux ?", "4.3 : Qu'est-ce qu'un corps opaque, translucide et transparent ?"] },
+      { label: "Réflexion de la lumière", items: ["4.4 : Qu'est-ce que la réflexion de la lumière, ses applications et les réflexions multiples ?", "4.5 : Comment explique-t-on l'image donnée par un miroir plan ?"] },
+      { label: "Périscope et kaléidoscope", items: ["Démarche technologique : fabrication d'un périscope à miroirs ou d'un kaléidoscope (principe de fonctionnement, étapes de fabrication)"] },
     ],
     "Propriétés physiques des gaz": [
-      { label: "Activités", items: ["4.1 : Le gaz a-t-il une forme et un volume propres ?", "4.2 : Le gaz a-t-il une masse ?", "4.3 : Les gaz sont-ils expansibles, compressibles et élastiques ?", "4.4 : Comment transvase-t-on les gaz ?", "4.5 : Comment mettre en évidence la dilatation des gaz ?", "4.6 : Comment mettre en évidence la pression atmosphérique ?", "4.7 : Comment mesure-t-on la pression atmosphérique ?", "4.8 : Comment mesure-t-on la pression d'un gaz ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Mise en évidence de l'existence des gaz et de leurs propriétés", "TP 2 : Transvasement des gaz", "TP 3 : Mise en évidence de la pression d'un gaz", "TP 4 : Dilatation d'un gaz"] },
+      { label: "Propriétés des gaz", items: ["4.1 : Le gaz a-t-il une forme et un volume propres ?", "4.2 : Le gaz a-t-il une masse ?", "4.3 : Les gaz sont-ils expansibles, compressibles et élastiques ?", "4.4 : Comment transvase-t-on les gaz ?", "4.5 : Comment mettre en évidence la dilatation des gaz ?"] },
+      { label: "Pression des gaz", items: ["4.6 : Comment mettre en évidence la pression atmosphérique ?", "4.7 : Comment mesure-t-on la pression atmosphérique ?", "4.8 : Comment mesure-t-on la pression d'un gaz ?"] },
     ],
     "Dilatation et contraction des liquides – Fabrication d'un thermomètre à alcool": [
-      { label: "Activités", items: ["4.1 : Quels sont les modes de transfert de la chaleur ?", "4.2 : Qu'est-ce que l'équilibre thermique ?", "4.3 : Comment les liquides se dilatent-ils ou se contractent-ils ?", "Chaleur et température ; sources et propagation de la chaleur ; absorption et perte de chaleur", "Dilatation et contraction des liquides", "Démarche technologique : fabrication d'un thermomètre à alcool (principe de fonctionnement, étapes de fabrication)"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Identification des modes de propagation de la chaleur (conduction, convection, rayonnement)", "TP 2 : Mise en évidence de l'équilibre thermique"] },
+      { label: "Chaleur et température", items: ["4.1 : Quels sont les modes de transfert de la chaleur ?", "4.2 : Qu'est-ce que l'équilibre thermique ?"] },
+      { label: "Dilatation des liquides", items: ["4.3 : Comment les liquides se dilatent-ils ou se contractent-ils ?"] },
+      { label: "Thermomètre à alcool", items: ["Démarche technologique : fabrication d'un thermomètre à alcool (principe de fonctionnement, étapes de fabrication)"] },
     ],
   },
   "4e": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/4e/2_contenus_notionnels_4e.md).
     "Utilisation des appareils de mesure de quelques grandeurs électriques – Vérification de la loi d'Ohm": [
-      { label: "Activités", items: ["5.1 : Mesure de quelques grandeurs électriques", "5.2 : Vérification de l'unicité de l'intensité et de l'additivité des tensions dans un circuit en série", "5.3 : Vérification de l'unicité de la tension et de l'additivité des intensités dans un circuit en dérivation", "5.4 : Vérification de la loi d'Ohm", "5.5 : Résistance équivalente de deux conducteurs ohmiques"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Utilisation d'un multimètre pour des mesures d'intensité et de tension dans un circuit en série", "TP 2 : Unicité de l'intensité et additivité des tensions dans un circuit en série", "TP 3 : Unicité de la tension et additivité des intensités dans un circuit en dérivation", "TP 4 : Vérification de la loi d'Ohm aux bornes d'un conducteur ohmique", "TP 5 : Détermination graphique de la résistance équivalente (série et dérivation)", "TP 6 : Détermination de la résistance équivalente de deux conducteurs ohmiques (série et dérivation)"] },
+      { label: "Appareils de mesure", items: ["5.1 : Mesure de quelques grandeurs électriques"] },
+      { label: "Lois des circuits", items: ["5.2 : Vérification de l'unicité de l'intensité et de l'additivité des tensions dans un circuit en série", "5.3 : Vérification de l'unicité de la tension et de l'additivité des intensités dans un circuit en dérivation"] },
+      { label: "Loi d'Ohm", items: ["5.4 : Vérification de la loi d'Ohm"] },
+      { label: "Résistance équivalente", items: ["5.5 : Résistance équivalente de deux conducteurs ohmiques"] },
     ],
     "Structure d'un atome – Quelques propriétés physiques et mécaniques de certains métaux usuels": [
-      { label: "Activités", items: ["4.1 : Quand parle-t-on d'électrisation d'un corps et quels sont les différents types de charge électrique ?", "4.2 : De quoi est constitué l'atome ?", "4.3 : Quelle est la structure électronique des atomes ?", "4.4 : Comment les atomes s'ionisent-ils ?", "4.5 : Quelles sont les propriétés physiques des métaux usuels ?", "4.6 : Quelles sont les propriétés mécaniques des métaux usuels ?", "4.7 : Qu'est-ce qu'un alliage et quelle est son importance ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Mise en évidence du phénomène d'électrisation", "TP 2 : Étude des propriétés physiques et mécaniques des métaux"] },
+      { label: "Constitution de l'atome", items: ["4.1 : Quand parle-t-on d'électrisation d'un corps et quels sont les différents types de charge électrique ?", "4.2 : De quoi est constitué l'atome ?"] },
+      { label: "Structure électronique", items: ["4.3 : Quelle est la structure électronique des atomes ?"] },
+      { label: "Ions et ionisation", items: ["4.4 : Comment les atomes s'ionisent-ils ?"] },
+      { label: "Métaux usuels", items: ["4.5 : Quelles sont les propriétés physiques des métaux usuels ?", "4.6 : Quelles sont les propriétés mécaniques des métaux usuels ?"] },
+      { label: "Alliages", items: ["4.7 : Qu'est-ce qu'un alliage et quelle est son importance ?"] },
     ],
     "Interactions mécaniques – Forces et poulies": [
-      { label: "Activités", items: ["4.1 : Qu'est-ce qu'une interaction mécanique ?", "4.2 : Qu'est-ce qu'une force et quelles sont ses caractéristiques ?", "4.3 : Comment mesure-t-on l'intensité d'une force et comment la représente-t-on ?", "4.4 : Qu'appelle-t-on poids d'un corps ?", "4.5 : Comment représente-t-on la tension d'un fil ou d'un ressort et la réaction d'un support ?", "4.6 : Qu'est-ce que la poussée d'Archimède ?", "4.7 : Comment déterminer la résultante de deux forces colinéaires ?", "4.8 : Comment déterminer la résultante de deux forces parallèles de même sens ?", "4.9 : Comment déterminer la résultante de deux forces concourantes ?", "4.10 : Comment étalonner un ressort ?", "4.11 : Quel est l'intérêt de l'utilisation d'une poulie simple ?", "4.12 : Quelles sont les relations entre les intensités des forces et les déplacements au cours de l'utilisation d'un palan ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Mise en évidence des interactions mécaniques", "TP 2 : Mesure de l'intensité d'une force à l'aide d'un dynamomètre", "TP 3 : Mise en évidence de la poussée d'Archimède", "TP 4 : Étalonnage d'un ressort", "TP 5 : Utilisation des poulies et palans"] },
+      { label: "Forces et interactions", items: ["4.1 : Qu'est-ce qu'une interaction mécanique ?", "4.2 : Qu'est-ce qu'une force et quelles sont ses caractéristiques ?"] },
+      { label: "Dynamomètre", items: ["4.3 : Comment mesure-t-on l'intensité d'une force et comment la représente-t-on ?", "4.10 : Comment étalonner un ressort ?"] },
+      { label: "Poids et poussée d'Archimède", items: ["4.4 : Qu'appelle-t-on poids d'un corps ?", "4.5 : Comment représente-t-on la tension d'un fil ou d'un ressort et la réaction d'un support ?", "4.6 : Qu'est-ce que la poussée d'Archimède ?"] },
+      { label: "Résultante de forces", items: ["4.7 : Comment déterminer la résultante de deux forces colinéaires ?", "4.8 : Comment déterminer la résultante de deux forces parallèles de même sens ?", "4.9 : Comment déterminer la résultante de deux forces concourantes ?"] },
+      { label: "Poulies et palans", items: ["4.11 : Quel est l'intérêt de l'utilisation d'une poulie simple ?", "4.12 : Quelles sont les relations entre les intensités des forces et les déplacements au cours de l'utilisation d'un palan ?"] },
     ],
     "Étude de quelques molécules": [
-      { label: "Activités", items: ["4.1 : Comment les atomes sont-ils liés dans une molécule ?", "4.2 : Comment s'effectue la combustion du carbone dans le dioxygène ?", "4.3 : Comment s'effectue la combustion du soufre dans le dioxygène ?", "4.4 : Comment s'effectue la combustion du fer dans le dioxygène ?", "4.5 : Quelles sont les propriétés physiques des hydrocarbures ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Construction des molécules à partir des modèles moléculaires", "TP 2 : Combustion du carbone dans le dioxygène", "TP 3 : Combustion du soufre dans le dioxygène", "TP 4 : Combustion du fer dans le dioxygène"] },
+      { label: "Liaison covalente", items: ["4.1 : Comment les atomes sont-ils liés dans une molécule ?"] },
+      { label: "Combustions dans le dioxygène", items: ["4.2 : Comment s'effectue la combustion du carbone dans le dioxygène ?", "4.3 : Comment s'effectue la combustion du soufre dans le dioxygène ?", "4.4 : Comment s'effectue la combustion du fer dans le dioxygène ?"] },
+      { label: "Hydrocarbures simples", items: ["4.5 : Quelles sont les propriétés physiques des hydrocarbures ?"] },
     ],
     "Propagation de la lumière": [
-      { label: "Activités", items: ["4.1 : Comment réalise-t-on une ombre, une pénombre ?", "4.2 : Comment s'expliquent les différents aspects de la Lune lors de son mouvement ?", "4.3 : Comment s'expliquent les éclipses du Soleil et de la Lune ?", "4.4 : Qu'est-ce que la réfraction de la lumière ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Réalisation d'ombre, de pénombre, de cône d'ombre", "TP 2 : Réalisation des éclipses", "TP 3 : Réalisation de la réfraction de la lumière"] },
+      { label: "Ombre et pénombre", items: ["4.1 : Comment réalise-t-on une ombre, une pénombre ?"] },
+      { label: "Éclipses et phases lunaires", items: ["4.2 : Comment s'expliquent les différents aspects de la Lune lors de son mouvement ?", "4.3 : Comment s'expliquent les éclipses du Soleil et de la Lune ?"] },
+      { label: "Réfraction", items: ["4.4 : Qu'est-ce que la réfraction de la lumière ?"] },
     ],
     "Fabrication d'un dynamomètre et d'une chambre noire": [
-      { label: "Activités", items: ["Dynamomètre : ressort hélicoïdal (récupération) ; étalonnage ; graduations ; anneau et crochet", "Chambre noire : boîte percée d'un trou avec écran translucide ; conditions d'obtention de l'image ; fixation de l'écran ; confection du cache pour la netteté"] },
+      { label: "Fabrication d'un dynamomètre", items: ["Dynamomètre : ressort hélicoïdal (récupération) ; étalonnage ; graduations ; anneau et crochet"] },
+      { label: "Chambre noire", items: ["Chambre noire : boîte percée d'un trou avec écran translucide ; conditions d'obtention de l'image ; fixation de l'écran ; confection du cache pour la netteté"] },
     ],
   },
   "3e": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/3e/2_contenus_notionnels_3e.md).
     "Équilibre d'un solide et conversion d'énergie": [
-      { label: "Activités", items: ["4.1 : Quels sont les différents types d'équilibre qui existent ?", "4.2 : Quand dit-on qu'un solide est animé d'un mouvement de translation rectiligne ?", "4.3 : À quelles conditions un solide en translation soumis à deux forces, à trois forces concourantes ou à des forces parallèles est-il en équilibre ?", "4.4 : Quand dit-on qu'un solide est animé d'un mouvement de rotation ?", "4.5 : Quelle est l'expression de la grandeur qui caractérise l'effet de rotation d'une force et d'un couple de forces ?", "4.6 : À quelle condition un solide mobile autour d'un axe fixe et soumis à plusieurs forces est-il en équilibre ?", "4.7 : À quelles situations de vie courante s'applique le théorème des moments ?", "4.8 : À quelle condition une force travaille-t-elle et quand ce travail est-il moteur, résistant ou nul ?", "4.9 : Quelle est l'expression du travail d'une force constante lors d'un déplacement rectiligne ?", "4.10 : Quelle est l'expression du travail effectué par une force appliquée à un solide en rotation ?", "4.11 : Quelle est l'expression de la puissance d'une force ou d'un couple de forces ?", "4.12 : Quelles sont les différentes formes d'énergie, leur transfert et conversion ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Équilibre d'un solide soumis à deux forces", "TP 2 : Équilibre d'un solide soumis à trois forces concourantes", "TP 3 : Équilibre d'un solide soumis à des forces parallèles", "TP 4 : Équilibre d'un solide mobile autour d'un axe fixe (treuil, leviers)"] },
+      { label: "Équilibre d'un solide", items: ["4.1 : Quels sont les différents types d'équilibre qui existent ?", "4.2 : Quand dit-on qu'un solide est animé d'un mouvement de translation rectiligne ?", "4.3 : À quelles conditions un solide en translation soumis à deux forces, à trois forces concourantes ou à des forces parallèles est-il en équilibre ?"] },
+      { label: "Leviers et treuil", items: ["4.4 : Quand dit-on qu'un solide est animé d'un mouvement de rotation ?", "4.5 : Quelle est l'expression de la grandeur qui caractérise l'effet de rotation d'une force et d'un couple de forces ?", "4.6 : À quelle condition un solide mobile autour d'un axe fixe et soumis à plusieurs forces est-il en équilibre ?", "4.7 : À quelles situations de vie courante s'applique le théorème des moments ?"] },
+      { label: "Travail et puissance", items: ["4.8 : À quelle condition une force travaille-t-elle et quand ce travail est-il moteur, résistant ou nul ?", "4.9 : Quelle est l'expression du travail d'une force constante lors d'un déplacement rectiligne ?", "4.10 : Quelle est l'expression du travail effectué par une force appliquée à un solide en rotation ?", "4.11 : Quelle est l'expression de la puissance d'une force ou d'un couple de forces ?"] },
+      { label: "Formes d'énergie", items: ["4.12 : Quelles sont les différentes formes d'énergie, leur transfert et conversion ?"] },
     ],
     "Quelques réactions chimiques en solution aqueuse": [
-      { label: "Activités", items: ["4.1 : Comment prépare-t-on une solution aqueuse d'une concentration donnée ?", "4.2 : Comment identifie-t-on les solutions aqueuses ioniques et non ioniques ?", "4.3 : Comment identifie-t-on le caractère acide, basique ou neutre d'une solution aqueuse ?", "4.4 : Comment explique-t-on une réaction acide-base ?", "4.5 : Comment les acides réagissent-ils avec les métaux usuels ?", "4.6 : Comment identifie-t-on les ions en solution aqueuse ?", "4.7 : Comment réalise-t-on l'électrolyse d'une solution aqueuse ionique ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Préparation de solution aqueuse", "TP 2 : Nature ionique ou non ionique d'une solution aqueuse", "TP 3 : Nature acido-basique d'une solution aqueuse", "TP 4 : Réaction acide chlorhydrique / hydroxyde de sodium (dosage acido-basique)", "TP 5 : Action des acides sur les métaux", "TP 6 : Caractérisation des ions", "TP 7 : Électrolyse de solutions d'acide chlorhydrique, de chlorure de cuivre II, de chlorure de fer II"] },
+      { label: "Solutions aqueuses", items: ["4.1 : Comment prépare-t-on une solution aqueuse d'une concentration donnée ?"] },
+      { label: "Solutions ioniques", items: ["4.2 : Comment identifie-t-on les solutions aqueuses ioniques et non ioniques ?", "4.3 : Comment identifie-t-on le caractère acide, basique ou neutre d'une solution aqueuse ?", "4.6 : Comment identifie-t-on les ions en solution aqueuse ?"] },
+      { label: "Réactions acide-base", items: ["4.4 : Comment explique-t-on une réaction acide-base ?", "4.5 : Comment les acides réagissent-ils avec les métaux usuels ?"] },
+      { label: "Électrolyse", items: ["4.7 : Comment réalise-t-on l'électrolyse d'une solution aqueuse ionique ?"] },
     ],
     "L'énergie électrique, un besoin indispensable": [
-      { label: "Activités", items: ["4.1 : Quel est le principe de production du courant alternatif et quelles sont les caractéristiques de la tension alternative produite ?", "4.2 : Quels sont les éléments intervenant dans la distribution du courant électrique ?", "4.3 : Qu'est-ce qu'un transformateur et quel est son rôle ?", "4.4 : Comment produire une tension continue à partir de la tension alternative ?", "4.5 : Qu'est-ce que la puissance électrique ?", "4.6 : Qu'est-ce que l'énergie électrique ?", "4.7 : Comment met-on en évidence l'effet Joule dans un conducteur ohmique ?", "4.8 : Comment fait-on le bilan énergétique dans un circuit électrique ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Mise en évidence de l'effet Joule", "TP 2 : Redressement du courant alternatif"] },
+      { label: "Production de l'électricité", items: ["4.1 : Quel est le principe de production du courant alternatif et quelles sont les caractéristiques de la tension alternative produite ?", "4.2 : Quels sont les éléments intervenant dans la distribution du courant électrique ?"] },
+      { label: "Transformateurs", items: ["4.3 : Qu'est-ce qu'un transformateur et quel est son rôle ?", "4.4 : Comment produire une tension continue à partir de la tension alternative ?"] },
+      { label: "Puissance électrique", items: ["4.5 : Qu'est-ce que la puissance électrique ?", "4.6 : Qu'est-ce que l'énergie électrique ?"] },
+      { label: "Loi de Joule", items: ["4.7 : Comment met-on en évidence l'effet Joule dans un conducteur ohmique ?", "4.8 : Comment fait-on le bilan énergétique dans un circuit électrique ?"] },
     ],
     "Fabrication d'un détecteur de courant électrique et d'un électrolyseur": [
-      { label: "Activités", items: ["Détecteur : fonctionnement d'une DEL ; étude qualitative d'un transistor ; schéma du circuit d'un détecteur", "Électrolyseur : électrodes (cathode, anode) ; constitution et formes ; schéma", "Techniques : fabrication et emboîtage du détecteur ; fabrication d'un électrolyseur ; identification des produits aux électrodes"] },
+      { label: "DEL et transistor", items: ["Fonctionnement de la DEL, étude qualitative du transistor, schéma du circuit du détecteur ; fabrication et emboîtage du détecteur"] },
+      { label: "Électrolyseur", items: ["Électrodes (cathode, anode), constitution et formes de l'électrolyseur, schéma ; fabrication de l'électrolyseur ; identification des produits recueillis aux électrodes"] },
     ],
     "Combustion complète de quelques hydrocarbures et réactions de polymérisation": [
-      { label: "Activités", items: ["4.1 : Qu'est-ce qu'un hydrocarbure ?", "4.2 : Comment réaliser la combustion complète d'un hydrocarbure ?", "4.3 : Comment préparer l'acétylène et le méthane au laboratoire ?", "4.4 : Qu'est-ce qu'une réaction de polymérisation ?", "4.5 : Quels sont les avantages et les inconvénients de l'utilisation des matières plastiques ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Construction des molécules d'hydrocarbures à partir des modèles moléculaires", "TP 2 : Identification des produits de combustion du butane", "TP 3 : Préparation de l'acétylène"] },
+      { label: "Hydrocarbures", items: ["4.1 : Qu'est-ce qu'un hydrocarbure ?", "4.3 : Comment préparer l'acétylène et le méthane au laboratoire ?"] },
+      { label: "Combustion des hydrocarbures", items: ["4.2 : Comment réaliser la combustion complète d'un hydrocarbure ?"] },
+      { label: "Polymérisation", items: ["4.4 : Qu'est-ce qu'une réaction de polymérisation ?", "4.5 : Quels sont les avantages et les inconvénients de l'utilisation des matières plastiques ?"] },
     ],
     "L'optique au service de l'homme": [
-      { label: "Activités", items: ["4.1 : Quels sont les différents types de lentilles et comment les reconnaît-on dans la pratique ?", "4.2 : Quelles sont les caractéristiques d'une lentille convergente ?", "4.3 : Comment détermine-t-on expérimentalement le foyer principal image et la distance focale d'une lentille ?", "4.4 : Comment vérifie-t-on expérimentalement la relation de conjugaison et du grandissement ?", "4.5 : Comment construit-on graphiquement l'image d'un objet à travers une lentille mince convergente ?", "4.6 : Quels sont les défauts de l'œil et comment les corrige-t-on ?", "4.7 : Comment décompose-t-on la lumière blanche et explique-t-on la formation de l'arc-en-ciel ?", "4.8 : Comment synthétise-t-on la lumière blanche ?"] },
-      { label: "Travaux pratiques", items: ["TP 1 : Identification des lentilles minces", "TP 2 : Détermination de la distance focale d'une lentille convergente", "TP 3 : Vérification de la relation de conjugaison", "TP 4 : Analyse et synthèse de la lumière blanche"] },
+      { label: "Lentilles convergentes", items: ["4.1 : Quels sont les différents types de lentilles et comment les reconnaît-on dans la pratique ?", "4.2 : Quelles sont les caractéristiques d'une lentille convergente ?", "4.3 : Comment détermine-t-on expérimentalement le foyer principal image et la distance focale d'une lentille ?", "4.4 : Comment vérifie-t-on expérimentalement la relation de conjugaison et du grandissement ?", "4.5 : Comment construit-on graphiquement l'image d'un objet à travers une lentille mince convergente ?"] },
+      { label: "Défauts de l'œil", items: ["4.6 : Quels sont les défauts de l'œil et comment les corrige-t-on ?"] },
+      { label: "Lumière blanche", items: ["4.7 : Comment décompose-t-on la lumière blanche et explique-t-on la formation de l'arc-en-ciel ?", "4.8 : Comment synthétise-t-on la lumière blanche ?"] },
     ],
   },
   "2nde C": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/2nde-C/2_contenus_notionnels_2ndeC.md).
+    // Certains items du guide sont partagés par plusieurs séquences (le guide ne
+    // les numérote pas plus finement) : le même item apparaît alors sous
+    // plusieurs groupes, chacun donnant accès au contenu notionnel propre à sa
+    // séquence (cf. pct_depth_data.py::_2NDE, champ "activites").
     "Le courant électrique dans les composants électriques": [
-      { label: "Activités", items: ["1 : Courant électrique continu : porteurs de charge, sens conventionnel, mesure de l'intensité, quantité d'électricité", "2 : Tension électrique continue (différence de potentiel) et sa mesure", "3 : Voltmètre, multimètre, oscilloscope", "4 : Courant alternatif ; tensions électriques variables", "5 : Dipôles passifs : résistor, photorésistor, thermistor, varistor, diode au silicium, diode Zener, photodiode (caractéristiques ; résistance et association de conducteurs ohmiques)", "6 : Dipôles actifs : générateur (caractéristique u = f(i), résistance interne, force électromotrice)", "7 : Point de fonctionnement d'un circuit"] },
+      { label: "Courant continu et alternatif", items: ["1 : Courant électrique continu : porteurs de charge, sens conventionnel, mesure de l'intensité, quantité d'électricité", "4 : Courant alternatif ; tensions électriques variables"] },
+      { label: "Tension électrique", items: ["2 : Tension électrique continue (différence de potentiel) et sa mesure"] },
+      { label: "Oscilloscope", items: ["3 : Voltmètre, multimètre, oscilloscope"] },
+      { label: "Dipôles passifs", items: ["5 (dipôles passifs) : Dipôles passifs : résistor, photorésistor, thermistor, varistor (caractéristiques U = f(I) et I = g(U))"] },
+      { label: "Conducteur ohmique", items: ["5 (résistance et effet Joule du conducteur ohmique) : Résistance de conducteurs ohmiques"] },
+      { label: "Associations de résistors", items: ["5 (association de conducteurs ohmiques) : Association de conducteurs ohmiques"] },
+      { label: "Diode et diode Zener", items: ["5 (diode au silicium, diode Zener, photodiode) : Diode au silicium, diode Zener, photodiode"] },
+      { label: "Générateur et fem", items: ["6 : Dipôles actifs : générateur (caractéristique u = f(i), résistance interne, force électromotrice)"] },
+      { label: "Point de fonctionnement", items: ["7 : Point de fonctionnement d'un circuit"] },
     ],
     "La matière et ses transformations": [
-      { label: "Activités", items: ["1 : Élément chimique ; atomes, électrons, noyau (protons et neutrons) ; nucléides, isotopes", "2 : Classification périodique des éléments", "3 : Molécule et liaison covalente (représentation de Lewis)", "4 : Ions monoatomiques et polyatomiques", "5 : Équation-bilan d'une réaction chimique ; loi de Lavoisier ; bilans molaires et massiques", "6 : Quantité de matière : la mole ; constante d'Avogadro ; loi d'Avogadro-Ampère ; volume molaire"] },
+      { label: "Structure de l'atome", items: ["1 : Élément chimique ; atomes, électrons, noyau (protons et neutrons) ; nucléides, isotopes"] },
+      { label: "Classification périodique", items: ["2 : Classification périodique des éléments"] },
+      { label: "Molécules et liaison covalente", items: ["3 : Molécule et liaison covalente (représentation de Lewis)"] },
+      { label: "Équation-bilan", items: ["5 : Équation-bilan d'une réaction chimique ; loi de Lavoisier ; bilans molaires et massiques"] },
+      { label: "Quantités de matière", items: ["6 : Quantité de matière : la mole ; constante d'Avogadro ; loi d'Avogadro-Ampère ; volume molaire"] },
     ],
     "La réalisation d'un montage électronique": [
-      { label: "Activités", items: ["Étapes du projet ; tableau de répartition des tâches (planning)", "Construction de nouveaux savoirs : étude expérimentale du transistor", "Construction de nouveaux savoirs : amplificateur opérationnel", "Construction de nouveaux savoirs : capteurs (microphones ; photorésistance et photodiode ; thermistance et couple thermoélectrique)", "Exemples de montages : dispositif de protection contre le vol ; détecteur de niveau d'eau", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
+      { label: "Transistor", items: ["Construction de nouveaux savoirs : étude expérimentale du transistor"] },
+      { label: "Amplificateur opérationnel", items: ["Construction de nouveaux savoirs : amplificateur opérationnel"] },
+      { label: "Montage électronique (projet)", items: ["Étapes du projet ; tableau de répartition des tâches (planning)", "Exemples de montages : dispositif de protection contre le vol ; détecteur de niveau d'eau", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
     ],
     "Les ions en solution aqueuse": [
-      { label: "Activités", items: ["1 : Chlorure de sodium : ions dans le corps pur et dans sa solution aqueuse ; rôle du solvant ; électrolyse du chlorure de sodium fondu et en solution", "2 : Solutions acides : acide chlorhydrique, ion H3O+, définition et mesure du pH", "3 : Solutions basiques : solution d'hydroxyde de sodium ; pH de différentes solutions", "4 : Réaction entre l'acide chlorhydrique et l'hydroxyde de sodium (dosage)", "5 : Tests d'identification des ions : chlorure, argent, sulfate, nitrate, fer II et fer III, cuivre II, zinc, aluminium"] },
+      { label: "Corps ioniques", items: ["1 (NaCl : corps pur et solution) : Chlorure de sodium : ions dans le corps pur et dans sa solution aqueuse ; rôle du solvant"] },
+      { label: "Dissolution et concentration", items: ["1 (concentration de la solution) : Concentration de la solution de chlorure de sodium"] },
+      { label: "Électrolyse de NaCl", items: ["1 (électrolyse) : Électrolyse du chlorure de sodium fondu et en solution"] },
+      { label: "Solutions acides et basiques", items: ["2 : Solutions acides : acide chlorhydrique, ion H3O+", "3 : Solutions basiques : solution d'hydroxyde de sodium"] },
+      { label: "Notion de pH", items: ["2 et 3 (mesure du pH) : Définition et mesure du pH ; pH de différentes solutions"] },
+      { label: "Dosage acide-base", items: ["4 : Réaction entre l'acide chlorhydrique et l'hydroxyde de sodium (dosage)"] },
+      { label: "Tests d'identification des ions", items: ["5 : Tests d'identification des ions : chlorure, argent, sulfate, nitrate, fer II et fer III, cuivre II, zinc, aluminium"] },
     ],
     "Les chocs et collisions entre solides en mouvement": [
-      { label: "Activités", items: ["1 : Mouvement : relativité ; vecteur vitesse d'un point mobile ; mouvement rectiligne uniforme ; mouvement circulaire uniforme", "2 : Centre d'inertie ; principe de l'inertie ; centre d'inertie d'un ensemble de solides", "3 : Vecteur quantité de mouvement d'un solide", "4 : Conservation du vecteur quantité de mouvement d'un système isolé (éclatement, chocs) ; exemples de variation"] },
+      { label: "Relativité du mouvement", items: ["1 (relativité du mouvement) : Relativité du mouvement"] },
+      { label: "Mouvement rectiligne uniforme", items: ["1 (mouvement rectiligne uniforme) : Mouvement rectiligne uniforme"] },
+      { label: "Mouvement circulaire uniforme", items: ["1 (mouvement circulaire uniforme) : Mouvement circulaire uniforme"] },
+      { label: "Vecteur vitesse", items: ["1 (vecteur vitesse) : Vecteur vitesse d'un point mobile"] },
+      { label: "Centre d'inertie", items: ["2 (centre d'inertie) : Centre d'inertie"] },
+      { label: "Principe d'inertie", items: ["2 (principe de l'inertie) : Principe de l'inertie"] },
+      { label: "Quantité de mouvement", items: ["3 : Vecteur quantité de mouvement d'un solide"] },
+      { label: "Chocs et collisions", items: ["4 : Conservation du vecteur quantité de mouvement d'un système isolé (éclatement, chocs) ; exemples de variation"] },
     ],
     "La pollution des eaux superficielles et de la nappe phréatique": [
-      { label: "Activités", items: ["Analyse des eaux pour prendre position face à l'utilisation de certains produits chimiques", "Généralités sur l'eau : usages ; approvisionnement ; obtention d'une eau potable", "Sources d'eau (océans, lacs, rivières, eaux souterraines, atmosphère) et caractéristiques (température, gaz dissous, acidité, salinité)", "Produits polluants : pesticides, acides, engrais, autres produits chimiques ; leurs effets", "Formes de lutte contre la pollution des eaux"] },
+      { label: "Pollution des eaux", items: ["Analyse des eaux pour prendre position face à l'utilisation de certains produits chimiques", "Généralités sur l'eau : usages ; approvisionnement ; obtention d'une eau potable", "Sources d'eau (océans, lacs, rivières, eaux souterraines, atmosphère) et caractéristiques (température, gaz dissous, acidité, salinité)", "Produits polluants : pesticides, acides, engrais, autres produits chimiques ; leurs effets", "Formes de lutte contre la pollution des eaux"] },
     ],
   },
   "2nde D": {
     "Le courant électrique dans les composants électriques": [
-      { label: "Activités", items: ["1 : Courant électrique continu : porteurs de charge, sens conventionnel, mesure de l'intensité, quantité d'électricité", "2 : Tension électrique continue (différence de potentiel) et sa mesure", "3 : Voltmètre, multimètre, oscilloscope", "4 : Courant alternatif ; tensions électriques variables", "5 : Dipôles passifs : résistor, photorésistor, thermistor, varistor, diode au silicium, diode Zener, photodiode (caractéristiques ; résistance et association de conducteurs ohmiques)", "6 : Dipôles actifs : générateur (caractéristique u = f(i), résistance interne, force électromotrice)", "7 : Point de fonctionnement d'un circuit"] },
+      { label: "Courant continu et alternatif", items: ["1 : Courant électrique continu : porteurs de charge, sens conventionnel, mesure de l'intensité, quantité d'électricité", "4 : Courant alternatif ; tensions électriques variables"] },
+      { label: "Tension électrique", items: ["2 : Tension électrique continue (différence de potentiel) et sa mesure"] },
+      { label: "Oscilloscope", items: ["3 : Voltmètre, multimètre, oscilloscope"] },
+      { label: "Dipôles passifs", items: ["5 (dipôles passifs) : Dipôles passifs : résistor, photorésistor, thermistor, varistor (caractéristiques U = f(I) et I = g(U))"] },
+      { label: "Conducteur ohmique", items: ["5 (résistance et effet Joule du conducteur ohmique) : Résistance de conducteurs ohmiques"] },
+      { label: "Associations de résistors", items: ["5 (association de conducteurs ohmiques) : Association de conducteurs ohmiques"] },
+      { label: "Diode et diode Zener", items: ["5 (diode au silicium, diode Zener, photodiode) : Diode au silicium, diode Zener, photodiode"] },
+      { label: "Générateur et fem", items: ["6 : Dipôles actifs : générateur (caractéristique u = f(i), résistance interne, force électromotrice)"] },
+      { label: "Point de fonctionnement", items: ["7 : Point de fonctionnement d'un circuit"] },
     ],
     "La matière et ses transformations": [
-      { label: "Activités", items: ["1 : Élément chimique ; atomes, électrons, noyau (protons et neutrons) ; nucléides, isotopes", "2 : Classification périodique des éléments", "3 : Molécule et liaison covalente (représentation de Lewis)", "4 : Ions monoatomiques et polyatomiques", "5 : Équation-bilan d'une réaction chimique ; loi de Lavoisier ; bilans molaires et massiques", "6 : Quantité de matière : la mole ; constante d'Avogadro ; loi d'Avogadro-Ampère ; volume molaire"] },
+      { label: "Structure de l'atome", items: ["1 : Élément chimique ; atomes, électrons, noyau (protons et neutrons) ; nucléides, isotopes"] },
+      { label: "Classification périodique", items: ["2 : Classification périodique des éléments"] },
+      { label: "Molécules et liaison covalente", items: ["3 : Molécule et liaison covalente (représentation de Lewis)"] },
+      { label: "Équation-bilan", items: ["5 : Équation-bilan d'une réaction chimique ; loi de Lavoisier ; bilans molaires et massiques"] },
+      { label: "Quantités de matière", items: ["6 : Quantité de matière : la mole ; constante d'Avogadro ; loi d'Avogadro-Ampère ; volume molaire"] },
     ],
     "La réalisation d'un montage électronique": [
-      { label: "Activités", items: ["Étapes du projet ; tableau de répartition des tâches (planning)", "Construction de nouveaux savoirs : étude expérimentale du transistor", "Construction de nouveaux savoirs : amplificateur opérationnel", "Construction de nouveaux savoirs : capteurs (microphones ; photorésistance et photodiode ; thermistance et couple thermoélectrique)", "Exemples de montages : dispositif de protection contre le vol ; détecteur de niveau d'eau", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
+      { label: "Transistor", items: ["Construction de nouveaux savoirs : étude expérimentale du transistor"] },
+      { label: "Amplificateur opérationnel", items: ["Construction de nouveaux savoirs : amplificateur opérationnel"] },
+      { label: "Montage électronique (projet)", items: ["Étapes du projet ; tableau de répartition des tâches (planning)", "Exemples de montages : dispositif de protection contre le vol ; détecteur de niveau d'eau", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
     ],
     "Les ions en solution aqueuse": [
-      { label: "Activités", items: ["1 : Chlorure de sodium : ions dans le corps pur et dans sa solution aqueuse ; rôle du solvant ; électrolyse du chlorure de sodium fondu et en solution", "2 : Solutions acides : acide chlorhydrique, ion H3O+, définition et mesure du pH", "3 : Solutions basiques : solution d'hydroxyde de sodium ; pH de différentes solutions", "4 : Réaction entre l'acide chlorhydrique et l'hydroxyde de sodium (dosage)", "5 : Tests d'identification des ions : chlorure, argent, sulfate, nitrate, fer II et fer III, cuivre II, zinc, aluminium"] },
+      { label: "Corps ioniques", items: ["1 (NaCl : corps pur et solution) : Chlorure de sodium : ions dans le corps pur et dans sa solution aqueuse ; rôle du solvant"] },
+      { label: "Dissolution et concentration", items: ["1 (concentration de la solution) : Concentration de la solution de chlorure de sodium"] },
+      { label: "Électrolyse de NaCl", items: ["1 (électrolyse) : Électrolyse du chlorure de sodium fondu et en solution"] },
+      { label: "Solutions acides et basiques", items: ["2 : Solutions acides : acide chlorhydrique, ion H3O+", "3 : Solutions basiques : solution d'hydroxyde de sodium"] },
+      { label: "Notion de pH", items: ["2 et 3 (mesure du pH) : Définition et mesure du pH ; pH de différentes solutions"] },
+      { label: "Dosage acide-base", items: ["4 : Réaction entre l'acide chlorhydrique et l'hydroxyde de sodium (dosage)"] },
+      { label: "Tests d'identification des ions", items: ["5 : Tests d'identification des ions : chlorure, argent, sulfate, nitrate, fer II et fer III, cuivre II, zinc, aluminium"] },
     ],
     "Les chocs et collisions entre solides en mouvement": [
-      { label: "Activités", items: ["1 : Mouvement : relativité ; vecteur vitesse d'un point mobile ; mouvement rectiligne uniforme ; mouvement circulaire uniforme", "2 : Centre d'inertie ; principe de l'inertie ; centre d'inertie d'un ensemble de solides", "3 : Vecteur quantité de mouvement d'un solide", "4 : Conservation du vecteur quantité de mouvement d'un système isolé (éclatement, chocs) ; exemples de variation"] },
+      { label: "Relativité du mouvement", items: ["1 (relativité du mouvement) : Relativité du mouvement"] },
+      { label: "Mouvement rectiligne uniforme", items: ["1 (mouvement rectiligne uniforme) : Mouvement rectiligne uniforme"] },
+      { label: "Mouvement circulaire uniforme", items: ["1 (mouvement circulaire uniforme) : Mouvement circulaire uniforme"] },
+      { label: "Vecteur vitesse", items: ["1 (vecteur vitesse) : Vecteur vitesse d'un point mobile"] },
+      { label: "Centre d'inertie", items: ["2 (centre d'inertie) : Centre d'inertie"] },
+      { label: "Principe d'inertie", items: ["2 (principe de l'inertie) : Principe de l'inertie"] },
+      { label: "Quantité de mouvement", items: ["3 : Vecteur quantité de mouvement d'un solide"] },
+      { label: "Chocs et collisions", items: ["4 : Conservation du vecteur quantité de mouvement d'un système isolé (éclatement, chocs) ; exemples de variation"] },
     ],
     "La pollution des eaux superficielles et de la nappe phréatique": [
-      { label: "Activités", items: ["Analyse des eaux pour prendre position face à l'utilisation de certains produits chimiques", "Généralités sur l'eau : usages ; approvisionnement ; obtention d'une eau potable", "Sources d'eau (océans, lacs, rivières, eaux souterraines, atmosphère) et caractéristiques (température, gaz dissous, acidité, salinité)", "Produits polluants : pesticides, acides, engrais, autres produits chimiques ; leurs effets", "Formes de lutte contre la pollution des eaux"] },
+      { label: "Pollution des eaux", items: ["Analyse des eaux pour prendre position face à l'utilisation de certains produits chimiques", "Généralités sur l'eau : usages ; approvisionnement ; obtention d'une eau potable", "Sources d'eau (océans, lacs, rivières, eaux souterraines, atmosphère) et caractéristiques (température, gaz dissous, acidité, salinité)", "Produits polluants : pesticides, acides, engrais, autres produits chimiques ; leurs effets", "Formes de lutte contre la pollution des eaux"] },
     ],
   },
   "1ère C": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/1ere-C/2_contenus_notionnels_1ereC.md).
     "L'énergie mécanique au service du développement": [
-      { label: "Activités", items: ["↳ 1 : Notions de cinématique", "1.1 : Vecteur espace et vecteur vitesse d'un point dans un repère donné", "1.2 : Mouvement de translation d'un solide", "1.3 : Mouvement de rotation autour d'un axe fixe : vitesse angulaire, vitesse linéaire", "1.4 : Moment d'une force par rapport à un axe ; moment d'un couple de forces", "↳ 2 : Travail et puissance d'une force", "2.1 : Force constante", "2.2 : Solide en translation : travail élémentaire et puissance instantanée ; travail du poids ; travail d'une force de frottement", "2.3 : Solide en rotation autour d'un axe fixe", "3 : Énergie cinétique : translation ; rotation, moment d'inertie ; théorème de l'énergie cinétique", "4 : Énergie potentielle de pesanteur", "5 : Énergie mécanique totale : conservation et non-conservation"] },
+      { label: "Cinématique", items: ["1.1 : Vecteur espace et vecteur vitesse d'un point dans un repère donné"] },
+      { label: "Translation et rotation", items: ["1.2 : Mouvement de translation d'un solide", "1.3 : Mouvement de rotation autour d'un axe fixe : vitesse angulaire, vitesse linéaire"] },
+      { label: "Moment d'une force", items: ["1.4 : Moment d'une force par rapport à un axe ; moment d'un couple de forces"] },
+      { label: "Travail et puissance", items: ["2.1 : Force constante", "2.2 : Solide en translation : travail élémentaire et puissance instantanée ; travail du poids ; travail d'une force de frottement", "2.3 : Solide en rotation autour d'un axe fixe"] },
+      { label: "Énergie cinétique", items: ["3 : Énergie cinétique : translation ; rotation, moment d'inertie ; théorème de l'énergie cinétique"] },
+      { label: "Énergie potentielle", items: ["4 : Énergie potentielle de pesanteur"] },
+      { label: "Énergie mécanique", items: ["5 : Énergie mécanique totale : conservation et non-conservation"] },
     ],
     "Étude de quelques composés organiques et leurs propriétés": [
-      { label: "Activités", items: ["1 : Le carbone, élément essentiel des composés organiques : mise en évidence ; liaisons covalentes, tétravalence", "2 : Les alcanes : tétravalence ; nomenclature ; combustion ; halogénation", "3 : Hydrocarbures insaturés et dérivés : structure ; nomenclature ; additions (H2, HCl, H2O) sur alcènes et acétylène ; polymères", "4 : Composés aromatiques : noyau benzénique ; nomenclature ; additions (H2, Cl2) ; substitutions (halogénation, nitration)", "5 : Pétroles et gaz naturels : matière première de la chimie organique (ne figure pas dans la fiche de progression 2026-2027)", "6 : Composés organiques oxygénés : présentation ; obtention de l'éthanol et de l'éthanal ; oxydation de l'éthanol ; estérification, hydrolyse des esters"] },
+      { label: "Le carbone", items: ["1 : Le carbone, élément essentiel des composés organiques : mise en évidence ; liaisons covalentes, tétravalence"] },
+      { label: "Les alcanes", items: ["2 (tétravalence, nomenclature, formule générale) : Les alcanes : tétravalence ; nomenclature ; formule générale ; isomérie"] },
+      { label: "Combustion et halogénation", items: ["2 (combustion, halogénation) : Les alcanes : combustion ; halogénation"] },
+      { label: "Alcènes et alcynes", items: ["3 (structure, nomenclature) : Hydrocarbures insaturés : structure ; nomenclature ; isomérie Z/E ; test de reconnaissance"] },
+      { label: "Additions et polymérisation", items: ["3 (additions, polymérisation) : Additions (H2, HCl, H2O) sur alcènes et alcynes ; polymérisation"] },
     ],
     "Réalisation d'une source de tension électrique continue stabilisée": [
-      { label: "Activités", items: ["1 : Le champ électrostatique : vecteur champ ; champ uniforme ; travail de la force électrostatique ; d.d.p. ; énergie potentielle électrostatique", "2 : Puissance électrique : loi de Joule ; loi d'Ohm pour générateur et récepteur ; bilan énergétique, loi de Pouillet ; circuits avec composants électroniques (ne figure pas dans la fiche de progression 2026-2027)", "3 : Les condensateurs : charge et décharge ; associations série et parallèle ; énergie emmagasinée ; montages dérivateur et intégrateur (circuits intégrés linéaires)", "4 : Réalisation d'une alimentation continue stabilisée : transformateur, pont de diodes, filtrage, diode Zener, transistor", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
+      { label: "Champ électrostatique", items: ["1 (vecteur champ ; champ uniforme) : Vecteur champ électrostatique ; champ uniforme"] },
+      { label: "Énergie potentielle électrique", items: ["1 (travail de la force électrostatique ; d.d.p. ; énergie potentielle) : Travail de la force électrostatique ; énergie potentielle électrique"] },
+      { label: "Effet Joule", items: ["2 (loi de Joule) : Puissance électrique : loi de Joule"] },
+      { label: "Loi d'Ohm généralisée", items: ["2 (loi d'Ohm pour générateur et récepteur) : Loi d'Ohm pour générateur et récepteur"] },
+      { label: "Bilan énergétique", items: ["2 (bilan énergétique, loi de Pouillet) : Bilan énergétique d'un générateur et d'un récepteur"] },
+      { label: "Diodes et semi-conducteurs", items: ["4 (diode Zener) : Diodes et semi-conducteurs : fonctionnement, caractéristique, diode Zener"] },
+      { label: "Redressement et filtrage", items: ["4 (transformateur, pont de diodes, filtrage) : Redressement et filtrage : transformateur, pont de diodes, condensateur"] },
+      { label: "Source stabilisée (projet)", items: ["4 (réalisation du projet) : Conduite du projet ; réalisation et test du dispositif", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
     ],
     "Explication de quelques phénomènes chimiques par les réactions conjuguées d'oxydation et de réduction": [
-      { label: "Activités", items: ["↳ 1 : Réactions d'oxydoréduction en solution aqueuse", "1.1 : Action de solutions acides sur les métaux", "1.2 : Réaction entre un métal et un ion métallique", "1.3 : Couple oxydant-réducteur", "1.4 : Potentiel d'oxydoréduction", "1.5 : Généralisation du couple oxydant-réducteur ; dosages par oxydoréduction", "2 : Généralisation de l'oxydoréduction : réactions par voie sèche ; nombre d'oxydation", "3 : Applications : électrolyse en solution aqueuse ; piles électrochimiques ; corrosion des métaux (cas du fer)"] },
+      { label: "Oxydoréduction", items: ["1.1 : Action de solutions acides sur les métaux", "1.2 : Réaction entre un métal et un ion métallique"] },
+      { label: "Couples oxydant/réducteur", items: ["1.3 : Couple oxydant-réducteur", "1.4 : Potentiel d'oxydoréduction", "1.5 : Généralisation du couple oxydant-réducteur ; dosages par oxydoréduction", "3 : Applications : électrolyse en solution aqueuse ; piles électrochimiques ; corrosion des métaux (cas du fer)"] },
     ],
     "Température et chaleur": [
-      { label: "Activités", items: ["1 : Conversions réciproques énergie mécanique ↔ énergie thermique", "2 : La calorimétrie", "3 : Lois des gaz parfaits : état gazeux ; compressibilité isotherme, loi de Mariotte ; dilatation ; équation d'état pV = nRT"] },
+      { label: "Calorimétrie", items: ["2 : La calorimétrie"] },
+      { label: "Lois des gaz", items: ["3 : Lois des gaz parfaits : état gazeux ; compressibilité isotherme, loi de Mariotte ; dilatation ; équation d'état pV = nRT"] },
+      { label: "Conservation de l'énergie", items: ["1 : Conversions réciproques énergie mécanique ↔ énergie thermique"] },
     ],
     "Vibration, propagation et interférences : trois phénomènes physiques utiles dans la technologie des ondes": [
-      { label: "Activités", items: ["1 : Types d'ondes et propagation : mécaniques, acoustiques, lumineuses, hertziennes", "2 : Caractère périodique des ondes vibratoires entretenues", "3 : Propriétés des ondes : réflexion, transmission, réfraction, diffraction", "4 : Superposition des ondes : les interférences"] },
+      { label: "Types d'ondes", items: ["1 : Types d'ondes et propagation : mécaniques, acoustiques, lumineuses, hertziennes"] },
+      { label: "Onde progressive périodique", items: ["2 : Caractère périodique des ondes vibratoires entretenues"] },
+      { label: "Diffraction et dispersion", items: ["3 : Propriétés des ondes : réflexion, transmission, réfraction, diffraction"] },
+      { label: "Interférences", items: ["4 : Superposition des ondes : les interférences"] },
     ],
   },
   "1ère D": {
     "L'énergie mécanique au service du développement": [
-      { label: "Activités", items: ["↳ 1 : Notions de cinématique", "1.1 : Vecteur espace et vecteur vitesse d'un point dans un repère donné", "1.2 : Mouvement de translation d'un solide", "1.3 : Mouvement de rotation autour d'un axe fixe : vitesse angulaire, vitesse linéaire", "1.4 : Moment d'une force par rapport à un axe ; moment d'un couple de forces", "↳ 2 : Travail et puissance d'une force", "2.1 : Force constante", "2.2 : Solide en translation : travail élémentaire et puissance instantanée ; travail du poids ; travail d'une force de frottement", "2.3 : Solide en rotation autour d'un axe fixe", "3 : Énergie cinétique : translation ; rotation, moment d'inertie ; théorème de l'énergie cinétique", "4 : Énergie potentielle de pesanteur", "5 : Énergie mécanique totale : conservation et non-conservation"] },
+      { label: "Cinématique", items: ["1.1 : Vecteur espace et vecteur vitesse d'un point dans un repère donné"] },
+      { label: "Translation et rotation", items: ["1.2 : Mouvement de translation d'un solide", "1.3 : Mouvement de rotation autour d'un axe fixe : vitesse angulaire, vitesse linéaire"] },
+      { label: "Moment d'une force", items: ["1.4 : Moment d'une force par rapport à un axe ; moment d'un couple de forces"] },
+      { label: "Travail et puissance", items: ["2.1 : Force constante", "2.2 : Solide en translation : travail élémentaire et puissance instantanée ; travail du poids ; travail d'une force de frottement", "2.3 : Solide en rotation autour d'un axe fixe"] },
+      { label: "Énergie cinétique", items: ["3 : Énergie cinétique : translation ; rotation, moment d'inertie ; théorème de l'énergie cinétique"] },
+      { label: "Énergie potentielle", items: ["4 : Énergie potentielle de pesanteur"] },
+      { label: "Énergie mécanique", items: ["5 : Énergie mécanique totale : conservation et non-conservation"] },
     ],
     "Étude de quelques composés organiques et leurs propriétés": [
-      { label: "Activités", items: ["1 : Le carbone, élément essentiel des composés organiques : mise en évidence ; liaisons covalentes, tétravalence", "2 : Les alcanes : tétravalence ; nomenclature ; combustion ; halogénation", "3 : Hydrocarbures insaturés et dérivés : structure ; nomenclature ; additions (H2, HCl, H2O) sur alcènes et acétylène ; polymères", "4 : Composés aromatiques : noyau benzénique ; nomenclature ; additions (H2, Cl2) ; substitutions (halogénation, nitration)", "5 : Pétroles et gaz naturels : matière première de la chimie organique (ne figure pas dans la fiche de progression 2026-2027)", "6 : Composés organiques oxygénés : présentation ; obtention de l'éthanol et de l'éthanal ; oxydation de l'éthanol ; estérification, hydrolyse des esters"] },
+      { label: "Le carbone", items: ["1 : Le carbone, élément essentiel des composés organiques : mise en évidence ; liaisons covalentes, tétravalence"] },
+      { label: "Les alcanes", items: ["2 (tétravalence, nomenclature, formule générale) : Les alcanes : tétravalence ; nomenclature ; formule générale ; isomérie"] },
+      { label: "Combustion et halogénation", items: ["2 (combustion, halogénation) : Les alcanes : combustion ; halogénation"] },
+      { label: "Alcènes et alcynes", items: ["3 (structure, nomenclature) : Hydrocarbures insaturés : structure ; nomenclature ; isomérie Z/E ; test de reconnaissance"] },
+      { label: "Additions et polymérisation", items: ["3 (additions, polymérisation) : Additions (H2, HCl, H2O) sur alcènes et alcynes ; polymérisation"] },
     ],
     "Réalisation d'une source de tension électrique continue stabilisée": [
-      { label: "Activités", items: ["1 : Le champ électrostatique : vecteur champ ; champ uniforme ; travail de la force électrostatique ; d.d.p. ; énergie potentielle électrostatique", "2 : Puissance électrique : loi de Joule ; loi d'Ohm pour générateur et récepteur ; bilan énergétique, loi de Pouillet ; circuits avec composants électroniques (ne figure pas dans la fiche de progression 2026-2027)", "3 : Les condensateurs : charge et décharge ; associations série et parallèle ; énergie emmagasinée ; montages dérivateur et intégrateur (circuits intégrés linéaires)", "4 : Réalisation d'une alimentation continue stabilisée : transformateur, pont de diodes, filtrage, diode Zener, transistor", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
+      { label: "Champ électrostatique", items: ["1 (vecteur champ ; champ uniforme) : Vecteur champ électrostatique ; champ uniforme"] },
+      { label: "Énergie potentielle électrique", items: ["1 (travail de la force électrostatique ; d.d.p. ; énergie potentielle) : Travail de la force électrostatique ; énergie potentielle électrique"] },
+      { label: "Effet Joule", items: ["2 (loi de Joule) : Puissance électrique : loi de Joule"] },
+      { label: "Loi d'Ohm généralisée", items: ["2 (loi d'Ohm pour générateur et récepteur) : Loi d'Ohm pour générateur et récepteur"] },
+      { label: "Bilan énergétique", items: ["2 (bilan énergétique, loi de Pouillet) : Bilan énergétique d'un générateur et d'un récepteur"] },
+      { label: "Diodes et semi-conducteurs", items: ["4 (diode Zener) : Diodes et semi-conducteurs : fonctionnement, caractéristique, diode Zener"] },
+      { label: "Redressement et filtrage", items: ["4 (transformateur, pont de diodes, filtrage) : Redressement et filtrage : transformateur, pont de diodes, condensateur"] },
+      { label: "Source stabilisée (projet)", items: ["4 (réalisation du projet) : Conduite du projet ; réalisation et test du dispositif", "Schéma normalisé du dispositif à fabriquer ; estimation du coût du projet"] },
     ],
     "Explication de quelques phénomènes chimiques par les réactions conjuguées d'oxydation et de réduction": [
-      { label: "Activités", items: ["↳ 1 : Réactions d'oxydoréduction en solution aqueuse", "1.1 : Action de solutions acides sur les métaux", "1.2 : Réaction entre un métal et un ion métallique", "1.3 : Couple oxydant-réducteur", "1.4 : Potentiel d'oxydoréduction", "1.5 : Généralisation du couple oxydant-réducteur ; dosages par oxydoréduction", "2 : Généralisation de l'oxydoréduction : réactions par voie sèche ; nombre d'oxydation", "3 : Applications : électrolyse en solution aqueuse ; piles électrochimiques ; corrosion des métaux (cas du fer)"] },
+      { label: "Oxydoréduction", items: ["1.1 : Action de solutions acides sur les métaux", "1.2 : Réaction entre un métal et un ion métallique"] },
+      { label: "Couples oxydant/réducteur", items: ["1.3 : Couple oxydant-réducteur", "1.4 : Potentiel d'oxydoréduction", "1.5 : Généralisation du couple oxydant-réducteur ; dosages par oxydoréduction", "3 : Applications : électrolyse en solution aqueuse ; piles électrochimiques ; corrosion des métaux (cas du fer)"] },
     ],
     "Température et chaleur": [
-      { label: "Activités", items: ["1 : Conversions réciproques énergie mécanique ↔ énergie thermique", "2 : La calorimétrie", "3 : Lois des gaz parfaits : état gazeux ; compressibilité isotherme, loi de Mariotte ; dilatation ; équation d'état pV = nRT"] },
+      { label: "Calorimétrie", items: ["2 : La calorimétrie"] },
+      { label: "Lois des gaz", items: ["3 : Lois des gaz parfaits : état gazeux ; compressibilité isotherme, loi de Mariotte ; dilatation ; équation d'état pV = nRT"] },
+      { label: "Conservation de l'énergie", items: ["1 : Conversions réciproques énergie mécanique ↔ énergie thermique"] },
     ],
     "Vibration, propagation et interférences : trois phénomènes physiques utiles dans la technologie des ondes": [
-      { label: "Activités", items: ["1 : Types d'ondes et propagation : mécaniques, acoustiques, lumineuses, hertziennes", "2 : Caractère périodique des ondes vibratoires entretenues", "3 : Propriétés des ondes : réflexion, transmission, réfraction, diffraction", "4 : Superposition des ondes : les interférences"] },
+      { label: "Types d'ondes", items: ["1 : Types d'ondes et propagation : mécaniques, acoustiques, lumineuses, hertziennes"] },
+      { label: "Onde progressive périodique", items: ["2 : Caractère périodique des ondes vibratoires entretenues"] },
+      { label: "Diffraction et dispersion", items: ["3 : Propriétés des ondes : réflexion, transmission, réfraction, diffraction"] },
+      { label: "Interférences", items: ["4 : Superposition des ondes : les interférences"] },
     ],
   },
   "Tle C": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/Tle-C/2_contenus_notionnels_TleC.md).
     "Champs de forces et interactions": [
-      { label: "Activités", items: ["1 : Cinématique : vecteurs position, vitesse, accélération (tangentielle, normale) ; mouvements rectilignes (uniforme, uniformément varié, sinusoïdal) ; mouvement circulaire uniforme", "2 : Interaction gravitationnelle : loi de gravitation ; champ de gravitation ; champ de pesanteur", "3 : Champ électrostatique : force électrique, charge et champ ; condensateur plan", "4 : Champ magnétique : mise en évidence ; aimants et bobines ; vecteur champ ; spectres ; mesure ; champ terrestre ; champ uniforme", "5 : Lois de Newton : principe de l'inertie ; théorème du centre d'inertie ; principe d'interaction ; théorème de l'énergie cinétique", "6 : Mouvement des satellites et des planètes : satellites terrestres, géostationnaires ; lois de Kepler ; système solaire", "7 : Mouvement dans le champ de pesanteur terrestre", "8 : Particule chargée dans un champ électrique uniforme : étude dynamique, énergétique ; déflexion électrique", "9 : Particule chargée dans un champ magnétique uniforme : force magnétique, puissance, mouvement ; déflexion (téléviseur), spectrographe de masse, cyclotron", "10 : Action d'un champ magnétique sur un circuit ; loi de Laplace : rails de Laplace ; moteurs et haut-parleurs électrodynamiques", "11 : Induction et auto-induction : loi de Lenz ; f.é.m. d'induction ; auto-inductance ; énergie et puissance d'une bobine"] },
+      { label: "Cinématique du point", items: ["1 (vecteurs position, vitesse, accélération) : Cinématique : vecteurs position, vitesse, accélération tangentielle et normale ; rayon de courbure"] },
+      { label: "Mouvements particuliers", items: ["1 (mouvements rectilignes et circulaire) : Mouvements rectilignes (uniforme, uniformément varié, sinusoïdal) ; mouvement circulaire uniforme"] },
+      { label: "Interaction gravitationnelle", items: ["2 : Interaction gravitationnelle : loi de gravitation ; champ de gravitation ; champ de pesanteur"] },
+      { label: "Champ électrostatique", items: ["3 : Champ électrostatique : force électrique, charge et champ ; condensateur plan"] },
+      { label: "Champ magnétique", items: ["4 : Champ magnétique : mise en évidence ; aimants et bobines ; vecteur champ ; spectres ; mesure ; champ terrestre ; champ uniforme"] },
+      { label: "Lois de Newton", items: ["5 : Lois de Newton : principe de l'inertie ; théorème du centre d'inertie ; principe d'interaction ; théorème de l'énergie cinétique"] },
+      { label: "Satellites et lois de Képler", items: ["6 : Mouvement des satellites et des planètes : satellites terrestres, géostationnaires ; lois de Kepler ; système solaire"] },
+      { label: "Chute dans le champ de pesanteur", items: ["7 : Mouvement dans le champ de pesanteur terrestre"] },
+      { label: "Particule en champ E", items: ["8 : Particule chargée dans un champ électrique uniforme : étude dynamique, énergétique ; déflexion électrique"] },
+      { label: "Particule en champ B", items: ["9 : Particule chargée dans un champ magnétique uniforme : force magnétique, puissance, mouvement ; déflexion (téléviseur), spectrographe de masse, cyclotron"] },
+      { label: "Loi de Laplace", items: ["10 : Action d'un champ magnétique sur un circuit ; loi de Laplace : rails de Laplace ; moteurs et haut-parleurs électrodynamiques"] },
+      { label: "Induction et auto-induction", items: ["11 : Induction et auto-induction : loi de Lenz ; f.é.m. d'induction ; auto-inductance ; énergie et puissance d'une bobine"] },
     ],
     "Chimie des solutions aqueuses et cinétique chimique": [
-      { label: "Activités", items: ["↳ 1 : Acides et bases en solution aqueuse", "1.1 : L'eau : solvant ionisant ; produit ionique ; pH", "1.2 : Solutions d'acide chlorhydrique et d'hydroxyde de sodium ; pH", "1.3 : Couples acide/base : Ka, pKa, classification, domaines de prédominance ; acides et bases forts", "1.4 : Réactions acide-base : acide fort/base forte ; acide fort/base faible ; acide faible/base forte", "↳ 2 : Cinétique chimique", "2.1 : Vitesse de formation et de disparition d'un corps", "2.2 : Influence des concentrations et de la température ; applications", "2.3 : Catalyse : définition ; exemples ; applications industrielles"] },
+      { label: "pH et produit ionique", items: ["1.1 : L'eau : solvant ionisant ; produit ionique ; pH"] },
+      { label: "Acides forts et bases fortes", items: ["1.2 : Solutions d'acide chlorhydrique et d'hydroxyde de sodium ; pH"] },
+      { label: "Couples acide/base et Ka", items: ["1.3 : Couples acide/base : Ka, pKa, classification, domaines de prédominance ; acides et bases forts"] },
+      { label: "Réactions acide-base", items: ["1.4 : Réactions acide-base : acide fort/base forte ; acide fort/base faible ; acide faible/base forte"] },
+      { label: "Cinétique chimique", items: ["2.1 : Vitesse de formation et de disparition d'un corps", "2.2 : Influence des concentrations et de la température ; applications"] },
+      { label: "Catalyse", items: ["2.3 : Catalyse : définition ; exemples ; applications industrielles"] },
     ],
     "Les oscillations mécaniques et électriques": [
-      { label: "Activités", items: ["↳ 1 : Oscillations mécaniques", "1.1 : Oscillateur harmonique non amorti (pendule élastique) : équation différentielle, fréquence propre, énergie", "1.2 : Oscillateur amorti : régimes pseudo-périodique, apériodique, critique", "↳ 2 : Oscillations électriques", "2.1 : Circuit LC : équation différentielle, fréquence propre, énergie ; entretien des oscillations", "2.2 : Circuit RLC série en régime sinusoïdal forcé : impédance ; résonance d'intensité, bande passante, facteur de qualité ; puissance, facteur de puissance ; émission-réception radio"] },
+      { label: "Oscillations mécaniques", items: ["1.1 : Oscillateur harmonique non amorti (pendule élastique) : équation différentielle, fréquence propre, énergie", "1.2 : Oscillateur amorti : régimes pseudo-périodique, apériodique, critique"] },
+      { label: "Circuit LC", items: ["2.1 : Circuit LC : équation différentielle, fréquence propre, énergie ; entretien des oscillations"] },
+      { label: "Circuit RLC forcé", items: ["2.2 : Circuit RLC série en régime sinusoïdal forcé : impédance ; résonance d'intensité, bande passante, facteur de qualité ; puissance, facteur de puissance ; émission-réception radio"] },
     ],
     "Chimie organique": [
-      { label: "Activités", items: ["1 : Notions de stéréochimie : conformation (éthane, cyclohexane) ; diastéréoisomérie Z/E", "2 : Les alcools : classes, nomenclature ; préparation ; réaction avec le sodium ; déshydratation ; oxydation (aldéhydes, cétones) ; polyalcools (glycol, glycérol)", "3 : Les amines : classes, nomenclature ; caractère basique ; caractère nucléophile (réaction d'Hofmann), passage aux amides", "4 : Les acides carboxyliques : estérification, hydrolyse, saponification ; anhydride d'acide, chlorure d'acyle ; amides", "5 : Les acides α-aminés : formule, nomenclature ; amphion ; liaison peptidique, protéines"] },
+      { label: "Stéréochimie", items: ["1 : Notions de stéréochimie : conformation (éthane, cyclohexane) ; diastéréoisomérie Z/E"] },
+      { label: "Alcools", items: ["2 (tétravalence, nomenclature) : Les alcools : classes, nomenclature ; préparation ; réaction avec le sodium ; déshydratation ; polyalcools (glycol, glycérol)"] },
+      { label: "Aldéhydes et cétones", items: ["2 (oxydation) : Oxydation ménagée des alcools : aldéhydes et cétones ; passage aux acides carboxyliques"] },
+      { label: "Amines", items: ["3 : Les amines : classes, nomenclature ; caractère basique ; caractère nucléophile (réaction d'Hofmann), passage aux amides"] },
+      { label: "Acides carboxyliques", items: ["4 (acide carboxylique, dérivés, amides) : Les acides carboxyliques : formule, caractère acide faible, anhydride d'acide, chlorure d'acyle, amides"] },
+      { label: "Esters et saponification", items: ["4 (estérification, hydrolyse, saponification) : Estérification, hydrolyse, saponification"] },
+      { label: "Acides α-aminés", items: ["5 : Les acides α-aminés : formule, nomenclature ; amphion ; liaison peptidique, protéines"] },
     ],
     "Optique géométrique et physique": [
-      { label: "Activités", items: ["1 : Lentilles minces : foyers, marche des rayons ; conditions de Gauss ; formules de conjugaison (Descartes, Newton) ; constructions ; système de deux lentilles ; distance focale (objet à l'infini, Bessel, Silbermann) ; œil, appareil photo, microscope", "2 : Décomposition de la lumière : dispersion par un prisme (formules du prisme) ; diffraction par un réseau (incidence normale et quelconque)"] },
+      { label: "Lentilles minces", items: ["1 (lentilles minces) : Lentilles minces : foyers, marche des rayons ; conditions de Gauss ; formules de conjugaison (Descartes, Newton) ; constructions ; système de deux lentilles ; distance focale (Bessel, Silbermann)"] },
+      { label: "Instruments d'optique", items: ["1 (œil, appareil photo, microscope) : Œil réduit, appareil photo et microscope"] },
+      { label: "Prisme et réseau", items: ["2 : Décomposition de la lumière : dispersion par un prisme (formules du prisme) ; diffraction par un réseau (incidence normale et quelconque)"] },
     ],
     "Physique atomique et nucléaire (« L'énergie de l'infiniment petit et la science »)": [
-      { label: "Activités", items: ["Particules de grande énergie : quantité de mouvement, énergie ; cas du photon (figure dans le guide et la progression 2026-2027, pas dans le programme d'études)", "1 : Niveaux d'énergie atomiques : spectres ; niveaux ; transitions E2 − E1 = hν ; atome d'hydrogène", "2 : Noyau atomique : nucléons ; énergie de liaison, stabilité", "3 : Réactions nucléaires spontanées : α, β−, β+, γ ; loi de décroissance, demi-vie ; familles radioactives ; absorption des rayonnements", "4 : Réactions nucléaires provoquées : fission ; fusion ; applications"] },
+      { label: "Particules de grande énergie", items: ["Particules de grande énergie : quantité de mouvement, énergie ; cas du photon (figure dans le guide et la progression 2026-2027, pas dans le programme d'études)"] },
+      { label: "Niveaux d'énergie", items: ["1 : Niveaux d'énergie atomiques : spectres ; niveaux ; transitions E2 − E1 = hν ; atome d'hydrogène"] },
+      { label: "Noyau et énergie de liaison", items: ["2 : Noyau atomique : nucléons ; énergie de liaison, stabilité"] },
+      { label: "Radioactivité", items: ["3 : Réactions nucléaires spontanées : α, β−, β+, γ ; loi de décroissance, demi-vie ; familles radioactives ; absorption des rayonnements"] },
+      { label: "Fission et fusion", items: ["4 : Réactions nucléaires provoquées : fission ; fusion ; applications"] },
     ],
   },
   "Tle D": {
+    // Regroupement par SÉQUENCE (cf. PCT-Guide/Tle-D/2_contenus_notionnels_TleD.md).
+    // Tle D a son PROPRE guide (distinct de Tle C) : items bruts différents.
     "Champs de forces et interactions": [
-      { label: "Activités", items: ["1 : Cinématique : vecteurs position, vitesse, accélération ; mouvements rectilignes ; mouvement circulaire uniforme", "2 : Champ électrostatique : force électrique, charge et champ ; condensateur plan", "3 : Champ magnétique : mise en évidence ; aimants et bobines ; vecteur champ ; spectres ; mesure ; champ terrestre ; champ uniforme", "4 : Lois de Newton ; théorème de l'énergie cinétique", "5 : Mouvement dans le champ de pesanteur terrestre", "6 : Particule chargée dans un champ électrique uniforme : étude dynamique, énergétique ; déflexion électrique", "7 : Particule chargée dans un champ magnétique uniforme : force magnétique, puissance, mouvement ; applications", "8 : Induction et auto-induction : loi de Lenz ; f.é.m. ; auto-inductance ; énergie et puissance d'une bobine"] },
+      { label: "Cinématique du point", items: ["1 (vecteurs position, vitesse, accélération) : Cinématique : vecteurs position, vitesse, accélération tangentielle et normale ; rayon de courbure"] },
+      { label: "Mouvements particuliers", items: ["1 (mouvements rectilignes et circulaire) : Mouvements rectilignes (uniforme, uniformément varié, sinusoïdal) ; mouvement circulaire uniforme"] },
+      { label: "Champ électrostatique", items: ["2 : Champ électrostatique : force électrique, charge et champ ; condensateur plan"] },
+      { label: "Champ magnétique", items: ["3 : Champ magnétique : mise en évidence ; aimants et bobines ; vecteur champ ; spectres ; mesure ; champ terrestre ; champ uniforme"] },
+      { label: "Lois de Newton", items: ["4 : Lois de Newton ; théorème de l'énergie cinétique"] },
+      { label: "Chute dans le champ de pesanteur", items: ["5 : Mouvement dans le champ de pesanteur terrestre"] },
+      { label: "Particule en champ E", items: ["6 : Particule chargée dans un champ électrique uniforme : étude dynamique, énergétique ; déflexion électrique"] },
+      { label: "Particule en champ B", items: ["7 : Particule chargée dans un champ magnétique uniforme : force magnétique, puissance, mouvement ; applications"] },
+      { label: "Induction et auto-induction", items: ["8 : Induction et auto-induction : loi de Lenz ; f.é.m. ; auto-inductance ; énergie et puissance d'une bobine"] },
     ],
     "Chimie des solutions aqueuses et cinétique chimique": [
-      { label: "Activités", items: ["↳ 1 : Acides et bases en solution aqueuse", "1.1 : L'eau : solvant ionisant ; produit ionique ; pH", "1.2 : Solutions d'acide chlorhydrique et d'hydroxyde de sodium ; pH", "1.3 : Couples acide/base : Ka, pKa, domaines de prédominance ; acides et bases forts", "1.4 : Réactions acide-base : fort/fort ; fort/faible ; faible/fort", "2 : Cinétique chimique : vitesse de formation et de disparition ; influence des concentrations et de la température ; catalyse"] },
+      { label: "pH et produit ionique", items: ["1.1 : L'eau : solvant ionisant ; produit ionique ; pH"] },
+      { label: "Acides forts et bases fortes", items: ["1.2 : Solutions d'acide chlorhydrique et d'hydroxyde de sodium ; pH"] },
+      { label: "Couples acide/base et Ka", items: ["1.3 : Couples acide/base : Ka, pKa, domaines de prédominance ; acides et bases forts"] },
+      { label: "Réactions acide-base", items: ["1.4 : Réactions acide-base : fort/fort ; fort/faible ; faible/fort"] },
+      { label: "Cinétique chimique", items: ["2.1 : Vitesse de formation et de disparition d'un corps", "2.2 : Influence des concentrations et de la température ; applications"] },
+      { label: "Catalyse", items: ["2.3 : Catalyse : définition ; exemples ; applications industrielles"] },
     ],
     "Les oscillations mécaniques et électriques": [
-      { label: "Activités", items: ["1 : Oscillations mécaniques : oscillateur harmonique non amorti ; oscillateur amorti (régimes)", "2 : Oscillations électriques : circuit LC ; RLC série en régime forcé ; résonance ; puissance, facteur de puissance ; émission-réception radio"] },
+      { label: "Oscillations mécaniques", items: ["1 : Oscillations mécaniques : oscillateur harmonique non amorti ; oscillateur amorti (régimes)"] },
+      { label: "Circuit LC", items: ["2.1 : Circuit LC : équation différentielle, fréquence propre, énergie ; entretien des oscillations"] },
+      { label: "Circuit RLC forcé", items: ["2.2 : Circuit RLC série en régime sinusoïdal forcé : impédance ; résonance d'intensité, bande passante, facteur de qualité ; puissance, facteur de puissance ; émission-réception radio"] },
     ],
     "Chimie organique": [
-      { label: "Activités", items: ["1 : Stéréochimie : conformation ; diastéréoisomérie Z/E ; carbone asymétrique, énantiomérie, chiralité, activité optique", "2 : Les alcools : classes ; préparation ; propriétés ; oxydation ; passage aux phosphates d'alkyle ; polyalcools", "3 : Les amines : classes ; caractère basique ; caractère nucléophile (Hofmann), amides", "4 : Les acides carboxyliques : estérification, hydrolyse, saponification ; dérivés ; amides", "5 : Les acides α-aminés : représentation de Fischer, configurations D et L, chiralité ; amphion ; liaison peptidique ; protéines, enzymes"] },
+      { label: "Stéréochimie", items: ["1 : Stéréochimie : conformation ; diastéréoisomérie Z/E ; carbone asymétrique, énantiomérie, chiralité, activité optique"] },
+      { label: "Alcools", items: ["2 (tétravalence, nomenclature, phosphates d'alkyle) : Les alcools : classes ; préparation ; réaction avec le sodium ; déshydratation ; passage aux phosphates d'alkyle ; polyalcools"] },
+      { label: "Aldéhydes et cétones", items: ["2 (oxydation) : Oxydation ménagée des alcools : aldéhydes et cétones ; passage aux acides carboxyliques"] },
+      { label: "Amines", items: ["3 : Les amines : classes ; caractère basique ; caractère nucléophile (Hofmann), amides"] },
+      { label: "Acides carboxyliques", items: ["4 (acide carboxylique, dérivés, amides) : Les acides carboxyliques : formule, caractère acide faible, anhydride d'acide, chlorure d'acyle, amides"] },
+      { label: "Esters et saponification", items: ["4 (estérification, hydrolyse, saponification) : Estérification, hydrolyse, saponification"] },
+      { label: "Acides α-aminés", items: ["5 : Les acides α-aminés : représentation de Fischer, configurations D et L, chiralité ; amphion ; liaison peptidique ; protéines, enzymes"] },
     ],
     "Optique géométrique et physique": [
-      { label: "Activités", items: ["1 : Lentilles minces : foyers ; conditions de Gauss ; conjugaison ; constructions ; système de deux lentilles ; distance focale (Bessel, Silbermann) ; œil, appareil photo, microscope", "2 : Décomposition de la lumière : prisme ; réseau", "3 : Polarisation rectiligne de la lumière : nature électromagnétique ; lumière polarisée ; loi de Malus ; loi de Biot et Savart"] },
+      { label: "Lentilles minces", items: ["1 (lentilles minces) : Lentilles minces : foyers, marche des rayons ; conditions de Gauss ; formules de conjugaison (Descartes, Newton) ; constructions ; système de deux lentilles ; distance focale (Bessel, Silbermann)"] },
+      { label: "Instruments d'optique", items: ["1 (œil, appareil photo, microscope) : Œil réduit, appareil photo et microscope"] },
+      { label: "Prisme et réseau", items: ["2 : Décomposition de la lumière : prisme ; réseau"] },
+      { label: "Polarisation", items: ["3 : Polarisation rectiligne de la lumière : nature électromagnétique ; lumière polarisée ; loi de Malus ; loi de Biot et Savart"] },
     ],
     "Physique atomique et nucléaire (« L'énergie de l'infiniment petit et la science »)": [
-      { label: "Activités", items: ["1 : Niveaux d'énergie atomiques : spectres ; transitions ; atome d'hydrogène", "2 : Noyau atomique : nucléons ; énergie de liaison, stabilité", "3 : Réactions nucléaires spontanées : radioactivités ; décroissance, demi-vie ; familles radioactives ; absorption", "4 : Réactions nucléaires provoquées : fission, fusion, applications"] },
+      { label: "Niveaux d'énergie", items: ["1 : Niveaux d'énergie atomiques : spectres ; transitions ; atome d'hydrogène"] },
+      { label: "Noyau et énergie de liaison", items: ["2 : Noyau atomique : nucléons ; énergie de liaison, stabilité"] },
+      { label: "Radioactivité", items: ["3 : Réactions nucléaires spontanées : radioactivités ; décroissance, demi-vie ; familles radioactives ; absorption"] },
+      { label: "Fission et fusion", items: ["4 : Réactions nucléaires provoquées : fission, fusion, applications"] },
     ],
   },
 };
@@ -963,14 +1272,77 @@ const SVT_SA_DETAILS: Record<string, Record<string, SaGroup[]>> = {
 // commence TOUJOURS par le titre de SA exact (cf. pickValue) : New_model
 // (generator.py::depth_block) retrouve ainsi toujours le bon bloc "NIVEAU À
 // RESPECTER" (programme officiel) pour cette Activité précise.
-type NotionPick = { sa: string; activite: string };
+// `notion` = libellé du groupe (grp.label, ex. la séquence/notion au sein
+// d'une SA) auquel appartient l'Activité cochée -- capturé dès la sélection
+// (cf. toggleActivite) pour que groupForResolution (ci-dessous) puisse
+// détecter si 2 des 3 Activités d'une partie PCT partagent la même séquence.
+// `viaSequence` distingue un pick "séquence entière" (bouton esp-sequence-
+// toggle) d'un pick d'Activité précise, y compris quand une Activité porte
+// EXACTEMENT le même nom que sa notion (ex. groupe "Division dans ℕ"
+// contenant lui-même l'item "Division dans ℕ" + "Produit de facteurs
+// premiers") : sans ce champ, les deux picks sont indiscernables
+// (notion===activite dans les deux cas) et cocher cette seule Activité
+// affichait à tort "séquence entière sélectionnée" + verrouillait les
+// autres Activités du groupe (bug signalé par l'utilisateur, 2026-10-31).
+type NotionPick = { sa: string; notion: string; activite: string; viaSequence?: boolean };
 
-function pickValue(p: NotionPick): string {
+function pickValue(p: NotionPick, subject?: string | null): string {
+  if (subject === "Mathématiques") {
+    // notion===activite couvre aussi bien le pick "séquence entière"
+    // (viaSequence=true) que le repli 1-item des groupes lycée (aucune
+    // ambiguïté là : la notion entière = cette unique Activité) -- les deux
+    // envoient donc le même nom nu au backend, intentionnellement. `viaSequence`
+    // ne sert qu'à l'affichage (cf. renderDetailPicker), pas ici.
+    return p.notion === p.activite ? p.notion : `${p.notion} — ${p.activite}`;
+  }
   return `${p.sa} - ${p.activite}`;
 }
 
-function picksToNotions(picks: NotionPick[]): string[] {
-  return picks.map(pickValue);
+function picksToNotions(picks: NotionPick[], subject?: string | null): string[] {
+  return picks.map((p) => pickValue(p, subject));
+}
+
+// PCT UNIQUEMENT (demande explicite utilisateur) : quand exactement 3
+// Activités sont cochées pour une partie (ou le pool 6e/5e), détermine
+// automatiquement lesquelles 2 forment la situation-problème combinée de
+// la Résolution (la 3e restante forme l'autre, seule) -- critère : ces 2
+// Activités partagent la même séquence (`pick.notion`). Retourne `null` si
+// c'est ambigu (les 3 dans des séquences différentes, OU les 3 dans la même
+// séquence) : dans ce cas, un questionnaire explicite est nécessaire (cf.
+// orderedPicksForResolution ci-dessous et renderResolutionQuestionnaire).
+function groupForResolution(picks: NotionPick[]): { pair: [number, number]; alone: number } | null {
+  if (picks.length !== 3) return null;
+  const [a, b, c] = picks;
+  if (a.notion === b.notion && a.notion !== c.notion) return { pair: [0, 1], alone: 2 };
+  if (a.notion === c.notion && a.notion !== b.notion) return { pair: [0, 2], alone: 1 };
+  if (b.notion === c.notion && b.notion !== a.notion) return { pair: [1, 2], alone: 0 };
+  return null;
+}
+
+// Réordonne les picks d'une partie (ou du pool) avant envoi au backend :
+// pour 3 Activités, place le couple (détecté par séquence, ou désigné par
+// l'utilisateur via `manualPair`) en position 0/1 et l'isolée en position
+// 2 -- c'est cet ORDRE qui encode tout pour generator.py
+// ::_pct_resolution_split (Mobilisation = toutes ; Résolution = couple +
+// seule). Pour 2 Activités ou moins : ordre de clic, inchangé. Repli
+// silencieux sur l'ordre de clic si `manualPair` ne correspond à aucune
+// paire valide (jamais de blocage de soumission pour un choix optionnel).
+function orderedPicksForResolution(picks: NotionPick[], manualPair?: string[]): NotionPick[] {
+  if (picks.length !== 3) return picks;
+  const auto = groupForResolution(picks);
+  if (auto) {
+    const [i, j] = auto.pair;
+    return [picks[i], picks[j], picks[auto.alone]];
+  }
+  if (manualPair && manualPair.length === 2) {
+    const pairSet = new Set(manualPair);
+    const paired = picks.filter((p) => pairSet.has(p.activite));
+    const alone = picks.filter((p) => !pairSet.has(p.activite));
+    if (paired.length === 2 && alone.length === 1) {
+      return [paired[0], paired[1], alone[0]];
+    }
+  }
+  return picks;
 }
 
 // Pool "à plat" = union des deux parties, utilisé uniquement pour dériver la
@@ -1068,33 +1440,46 @@ const SUBJECT_PARTS: Record<string, { label: string; slug: string; notions: Reco
   ],
   // Mathématiques : même mécanique que SVT -- un seul "faux" part "Notions",
   // juste pour regrouper visuellement les notions par SA dans le picker
-  // (fiches officielles de progression 2026-2027). Aucun changement de
-  // comportement de génération : toujours exactement 3 notions au total
+  // (fiches officielles de progression 2026-2027). Détail à 3 niveaux SA ->
+  // Notion -> Activités (MATHS_SEQ_ACTIVITES_DETAILS) -- IDENTIQUE en mode
+  // Épreuve et en mode Exercice (demande explicite utilisateur : même
+  // format de choix des notions dans les deux modes ; auparavant l'épreuve
+  // se limitait à 2 niveaux via MATHS_SA_DETAILS). Aucun autre changement
+  // de comportement de génération : toujours exactement 3 notions au total
   // (MIN_NOTIONS_BY_SUBJECT ne liste pas "Mathématiques" -> réplique à
   // MAX_NOTIONS, comportement actuel inchangé), toujours soumises en pool
   // plat au backend (topics_by_part reconstruit en topics flat côté API).
   "Mathématiques": [
-    { label: "Notions", slug: "mathematiques", notions: MATHS_SA_TITLES, details: MATHS_SA_DETAILS },
+    { label: "Notions", slug: "mathematiques", notions: MATHS_SA_TITLES, details: MATHS_SEQ_ACTIVITES_DETAILS },
   ],
 };
 
-// Mode EXERCICE, Mathématiques UNIQUEMENT (demande explicite utilisateur) :
-// même "faux" part "Notions" que ci-dessus, mais avec le détail à 3 niveaux
-// SA -> Notion -> Activités (MATHS_SEQ_ACTIVITES_DETAILS) au lieu de 2.
-// Utilisé à la place de SUBJECT_PARTS["Mathématiques"] uniquement quand
-// mode === "exercice" (cf. calcul de `parts` plus bas) -- l'épreuve garde
-// le détail à 2 niveaux, le mode Exercice descend jusqu'aux sous-activités.
-const MATHS_PARTS_EXERCICE = [
-  { label: "Notions", slug: "mathematiques", notions: MATHS_SA_TITLES, details: MATHS_SEQ_ACTIVITES_DETAILS },
-];
-
 // La structure à parties ne s'applique qu'à CERTAINES classes de la matière
-// (PCT : 1ère/Tle seulement — 6e à 2nde gardent le pool unique de 3
-// problèmes, comme les maths). Absente/non listée = s'applique à toutes les
-// classes dès que SUBJECT_PARTS a une entrée pour la matière.
+// (PCT : second cycle complet -- 2nde/1ère/Tle, toutes séries C/D --
+// alignement sur le document officiel IGPM 2026-2027 ; 4e/3e aussi, mais en
+// scission ASYMÉTRIQUE (cf. PCT_4E3E_CLASSES/validation plus bas) ; 6e/5e
+// gardent le pool unique de 3 problèmes, comme les maths). Absente/non
+// listée = s'applique à toutes les classes dès que SUBJECT_PARTS a une
+// entrée pour la matière.
 const PARTS_CLASSES: Record<string, Set<string>> = {
-  "PCT": new Set(["1ère C", "1ère D", "Tle C", "Tle D"]),
+  "PCT": new Set(["4e", "3e", "2nde C", "2nde D", "1ère C", "1ère D", "Tle C", "Tle D"]),
 };
+
+// 4e/3e PCT : scission Physique/Chimie ASYMÉTRIQUE et FIXE (document
+// officiel IGPM) -- Chimie a toujours exactement 1 notion (1 situation-
+// problème), Physique toujours exactement 2 (2 situations-problèmes) :
+// pas un choix libre de répartition par l'utilisateur, contrairement à
+// 2nde/1ère/Tle où chaque partie a son propre nombre fixe (3) de notions.
+const PCT_4E3E_CLASSES = new Set(["4e", "3e"]);
+
+// 2nde/1ère/Tle PCT (demande explicite utilisateur) : chaque partie
+// accepte désormais 2 OU 3 activités (au lieu d'exactement 3) -- la
+// Mobilisation porte toujours sur toutes les activités choisies, la
+// Résolution se répartit par séquence (cf. groupForResolution plus bas
+// et generator.py::_pct_resolution_split).
+const PCT_SECOND_CYCLE_CLASSES = new Set([
+  "2nde C", "2nde D", "1ère C", "1ère D", "Tle C", "Tle D",
+]);
 
 function partsFor(subject: string, classe: string) {
   const def = SUBJECT_PARTS[subject];
@@ -1120,28 +1505,20 @@ const NOTIONS_BY_SUBJECT: Record<string, Record<string, string[]>> = {
 };
 
 const SUBJECTS = [
-  {
-    key: "Mathématiques",
-    desc: "Algèbre, analyse, géométrie",
-    Icon: Sigma,
-    selected: "border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50",
-    iconWrap: "bg-indigo-100 text-indigo-600",
-  },
-  {
-    key: "PCT",
-    desc: "Physique, Chimie, Technologie",
-    Icon: Atom,
-    selected: "border-amber-600 ring-1 ring-amber-600 bg-amber-50",
-    iconWrap: "bg-amber-100 text-amber-600",
-  },
-  {
-    key: "SVT",
-    desc: "Sciences de la Vie et de la Terre",
-    Icon: Dna,
-    selected: "border-emerald-600 ring-1 ring-emerald-600 bg-emerald-50",
-    iconWrap: "bg-emerald-100 text-emerald-600",
-  },
+  { key: "Mathématiques", desc: "Algèbre, analyse, géométrie" },
+  { key: "PCT", desc: "Physique, Chimie, Technologie" },
+  { key: "SVT", desc: "Sciences de la Vie et de la Terre" },
 ] as const;
+const SUBJECT_SYMBOLS: Record<string, string> = { "Mathématiques": "∑", PCT: "⚛", SVT: "❋" };
+
+/** A selectable card with an ink check, as in the workspace mockup. */
+function Choice({ selected, onClick, children, className = "", disabled = false }: { selected: boolean; onClick: () => void; children: ReactNode; className?: string; disabled?: boolean }) {
+  return (
+    <button type="button" className={`esp-choice ${className}${selected ? " is-on" : ""}${disabled ? " is-disabled" : ""}`} aria-pressed={selected} aria-disabled={disabled} disabled={disabled} onClick={onClick}>
+      <span className="esp-choice-dot" aria-hidden="true">{selected && <Check />}</span>{children}
+    </button>
+  );
+}
 
 const COLLEGE = new Set(["6e", "5e", "4e", "3e"]);
 // Durées imposées par les consignes de l'AE (non modifiables par l'utilisateur) :
@@ -1180,6 +1557,13 @@ function formatDuree(min: number): string {
 
 // Deux moteurs de génération au choix (façon Titan 1 / Titan 2) — Titan 2 en
 // première position car c'est désormais le moteur le plus rapide.
+// Titan 1 TEMPORAIREMENT bloqué (demande explicite utilisateur, 2026-11-02 :
+// le compte DeepSeek -- moteur "verify" de Titan1 -- est à sec) : reste
+// visible dans le choix (pas filtré comme avant pour PCT, cf.
+// availableMoteurs ci-dessous, désormais retiré) mais non sélectionnable,
+// avec le message "Non disponible pour le moment" à la place de sa
+// description habituelle. Repasser `disponible` à true une fois le solde
+// DeepSeek reconstitué.
 const MOTEURS = [
   {
     id: "titan2",
@@ -1188,6 +1572,7 @@ const MOTEURS = [
     detail: "",
     duree: "~2 min",
     avert: false,
+    disponible: true,
   },
   {
     id: "titan1",
@@ -1196,6 +1581,7 @@ const MOTEURS = [
     detail: "",
     duree: "~4-5 min",
     avert: true,
+    disponible: false,
   },
 ] as const;
 
@@ -1209,9 +1595,25 @@ const SUBJECT_STEP_NOUN: Record<string, string> = { "PCT": "Sous-tâche" };
 // "Problème I/II/III" (ou son vocabulaire propre) par défaut, ou une étape
 // par sous-tâche de chaque partie (ex. "Physique 1"..."Chimie 3") si la
 // matière a des parties pour cette classe.
+// Classes SVT par palier -- mêmes ensembles que _SVT_AB_CLASSES/_SVT_D_CLASSES
+// côté backend (generator.py), pour dériver les MÊMES ID d'étapes réels.
+const SVT_AB_CLASSES = new Set(["2nde AB", "1ère AB", "Tle AB"]);
+const SVT_D_CLASSES = new Set(["2nde D", "1ère D", "Tle D"]);
+const SVT_STEP_LABELS: Record<string, string> = {
+  partie1_association: "Association mot/définition",
+  partie1_lacunaire: "Test lacunaire",
+  partie1_paragraphe: "Construction de paragraphe",
+  partie1_dissertation: "Dissertation / Texte argumentatif ou explicatif",
+  restitution: "Restitution organisée des connaissances",
+  probleme_1: "Résolution de problème(s) à partir de documents fournis",
+  situation_1: "Situation-problème 1",
+  situation_2: "Situation-problème 2",
+};
+
 function stepsAndLabelsFor(
   subject: string, classe: string, mode: "epreuve" | "exercice" = "epreuve",
-  exerciceNotionsCount = 1
+  exerciceNotionsCount = 1, partie1Choice: string | null = null,
+  partsNotionCounts: number[] | null = null
 ): { steps: string[]; labels: Record<string, string> } {
   if (mode === "exercice") {
     // 2 notions, 1ère/Tle : Partie A/Partie B générées par deux appels
@@ -1224,6 +1626,51 @@ function stepsAndLabelsFor(
       };
     }
     return { steps: ["exercice_unique"], labels: { exercice_unique: "Exercice" } };
+  }
+  // BUG corrigé (constaté en conditions réelles : barre de progression
+  // bloquée à 0% pour toute génération SVT) : SUBJECT_PARTS["SVT"] existe
+  // UNIQUEMENT pour le picker de notions (regroupement visuel par SA, un
+  // seul "faux" part "Notions") -- le backend, lui, ne génère JAMAIS
+  // d'étapes "svt_support"/"svt_1"/"svt_contexte" pour cette matière
+  // (has_restitution=True côté Subject) : il émet "restitution"/"probleme_1"
+  // (ou, depuis la restructuration par palier, "partie1_association" /
+  // "partie1_lacunaire" / "partie1_paragraphe" / "partie1_dissertation" en
+  // 6e/5e/4e/3e, et "situation_1"/"situation_2" à la place de "probleme_1"
+  // pour les séries D) -- cf. generator.py::steps_for, has_restitution.
+  // Sans cette exception (même principe que Mathématiques ci-dessous), la
+  // barre de progression n'attendait que des événements SSE qui n'arrivent
+  // jamais.
+  if (subject === "SVT") {
+    let partie1: string;
+    if (classe === "6e" || classe === "5e") {
+      partie1 = partie1Choice && partie1Choice in SVT_STEP_LABELS && partie1Choice.startsWith("partie1_")
+        ? partie1Choice : "partie1_association";
+    } else if (classe === "4e" || classe === "3e") {
+      partie1 = "partie1_dissertation";
+    } else {
+      partie1 = "restitution";
+    }
+    const partie2 = SVT_D_CLASSES.has(classe) ? ["situation_1", "situation_2"] : ["probleme_1"];
+    return { steps: [partie1, ...partie2], labels: SVT_STEP_LABELS };
+  }
+  if (subject === "PCT" && (classe === "6e" || classe === "5e")) {
+    // 6e/5e PCT (document officiel IGPM) : pool unique (pas de scission
+    // Physique/Chimie), mais même structure Mobilisation/Résolution que
+    // 4e/3e/Second Cycle -- forme FIXE (toujours 3 notions), cf.
+    // generator.py::steps_for. Ordre d'émission réel côté backend : Support
+    // d'abord (séquentiel), puis Mobilisation/Situations (parallèle), puis
+    // Contexte/Tâche (séquentiel, APRÈS).
+    return {
+      steps: ["support", "mobilisation", "situation_1", "situation_2", "contexte", "tache"],
+      labels: {
+        support: "Support",
+        mobilisation: "Mobilisation des ressources",
+        situation_1: "Situation-problème 1",
+        situation_2: "Situation-problème 2",
+        contexte: "Contexte",
+        tache: "Tâche",
+      },
+    };
   }
   // IMPORTANT : ce `parts` sert à déterminer les ID d'étapes RÉELLEMENT
   // émis par le backend (pour faire avancer la barre de progression SSE),
@@ -1241,7 +1688,31 @@ function stepsAndLabelsFor(
   // global -- ces deux pastilles ne se termineraient donc jamais.
   const labels: Record<string, string> = parts ? {} : { contexte: "Contexte", tache: "Tâche" };
   const steps = parts ? [] : ["contexte", "tache"];
-  if (parts) {
+  if (parts && subject === "PCT" && PCT_4E3E_CLASSES.has(classe)) {
+    // 4e/3e PCT : scission ASYMÉTRIQUE (document officiel IGPM) -- pas de
+    // sous-tâches numérotées "{slug}_1/2/3", mais "{slug}_mobilisation" +
+    // 1 ou 2 situations-problèmes selon le nombre de notions de CETTE
+    // partie (cf. generator.py::build_step_prompt côté New_model).
+    parts.forEach((part, i) => {
+      const n = partsNotionCounts?.[i] ?? 1;
+      const supportId = `${part.slug}_support`;
+      steps.push(supportId);
+      labels[supportId] = "Support";
+      const mobId = `${part.slug}_mobilisation`;
+      steps.push(mobId);
+      labels[mobId] = "Mobilisation des ressources";
+      const situationIds = n >= 2
+        ? [`${part.slug}_situation_1`, `${part.slug}_situation_2`]
+        : [`${part.slug}_situation`];
+      situationIds.forEach((id, si) => {
+        steps.push(id);
+        labels[id] = `Situation-problème ${si + 1}`;
+      });
+      steps.push(`${part.slug}_contexte`, `${part.slug}_tache`);
+      labels[`${part.slug}_contexte`] = "Contexte";
+      labels[`${part.slug}_tache`] = "Tâche";
+    });
+  } else if (parts) {
     for (const part of parts) {
       // Support UNIQUE de la partie (demande explicite utilisateur), généré
       // séquentiellement AVANT ses sous-tâches (cf. backend/_sse_generate) --
@@ -1274,8 +1745,7 @@ type Phase = "form" | "streaming" | "done" | "error";
 export default function GeneratePage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { exams_remaining, is_unlimited, openPaywall } = useQuotaStore();
-  const { downloadPdf } = useExamStore();
+  const { exams_remaining, pct_exams_remaining, is_unlimited, openPaywall } = useQuotaStore();
   const isAdmin = user?.is_admin || user?.is_superuser;
 
   // "epreuve" (3 problèmes/sous-tâches + contexte/tâche, comportement
@@ -1284,6 +1754,11 @@ export default function GeneratePage() {
   // Pas de sélection par défaut (demande explicite) : null jusqu'à un choix
   // actif de l'utilisateur, comme pour le moteur Titan1/Titan2.
   const [mode, setMode] = useState<"epreuve" | "exercice" | null>(null);
+  // Sous-type du mode Exercice (demande explicite utilisateur) : l'utilisateur
+  // précise si l'exercice généré est un "Exercice d'application" ou une
+  // "Interrogation écrite" -- ce choix devient le titre affiché dans le rendu
+  // (document PDF + liste des épreuves), cf. exerciceTypeLabel ci-dessous.
+  const [exerciceType, setExerciceType] = useState<"application" | "interrogation" | null>(null);
   const [subject, setSubject] = useState<string | null>(null);
   const [classe, setClasse] = useState("");
   const [selectedNotions, setSelectedNotions] = useState<string[]>([]);
@@ -1295,11 +1770,16 @@ export default function GeneratePage() {
   // SA actuellement "ouverte" (liste Activités/TP affichée) par partie --
   // purement de la navigation, n'occupe aucun pick par elle-même.
   const [expandedSAByPart, setExpandedSAByPart] = useState<Record<string, string | null>>({});
-  // Partie Chimie OPTIONNELLE pour PCT en 2nde C/D (pool unique par défaut,
-  // comme avant) — choix explicite de l'utilisateur, 2 ou 3 sous-tâches.
-  // Les picks eux-mêmes vivent dans selectedPicksByPart["__chimie__"] (cf.
-  // renderDetailPicker) depuis l'ajout du détail SA -> Activités au pool PCT.
-  const [includeChimie, setIncludeChimie] = useState(false);
+  // PCT UNIQUEMENT (demande explicite utilisateur) : quand 3 Activités sont
+  // cochées pour une partie (ou le pool 6e/5e) et qu'aucune paire ne partage
+  // la même séquence (ni les 3 à la fois), un questionnaire demande à
+  // l'utilisateur lesquelles 2 des 3 Activités forment la situation-
+  // problème combinée -- la 3e restante forme l'autre, seule. Clé = label
+  // de partie (ou "__pool__") ; valeur = les 2 `activite`
+  // désignées comme couple. Non renseigné = repli silencieux sur les 2
+  // premières cochées (cf. orderedPicksForResolution), jamais de blocage de
+  // soumission.
+  const [resolutionPairChoice, setResolutionPairChoice] = useState<Record<string, string[]>>({});
   // SVT 6e/5e UNIQUEMENT (demande explicite utilisateur) : type de Partie I
   // choisi par l'enseignant -- "partie1_association" | "partie1_lacunaire" |
   // "partie1_paragraphe" (ce dernier désactivé si la 1ère activité cochée a
@@ -1334,57 +1814,54 @@ export default function GeneratePage() {
     () => (subject && classe ? NOTIONS_BY_SUBJECT[subject]?.[classe] || [] : []),
     [subject, classe]
   );
-  // Mode "exercice" : ignore ENTIÈREMENT la structure à parties PCT (même en
-  // 1ère/Tle) — un seul picker plat, 1 ou 2 notions, jamais de Partie A/B ni
-  // de combinaisons/Chimie optionnelle côté formulaire. EXCEPTION
-  // Mathématiques (demande explicite utilisateur) : le mode Exercice y
-  // garde un picker à 3 niveaux SA -> Notion -> Activités, via
-  // MATHS_PARTS_EXERCICE plutôt que SUBJECT_PARTS (qui porte le détail à
-  // 2 niveaux de l'épreuve) -- cf. MATHS_SEQ_ACTIVITES_DETAILS plus haut.
+  // Mode "exercice" : ignore la structure à parties SÉPARÉES de PCT (même en
+  // 1ère/Tle) — un seul picker plat (pool fusionné Physique+Chimie, cf.
+  // usesPoolDetail plus bas), jamais de Partie A/B ni de combinaisons/Chimie
+  // optionnelle côté formulaire. Mathématiques et SVT n'ont jamais eu qu'un
+  // seul "faux" part "Notions" (pas de scission comme PCT) : leur `parts`
+  // reste donc identique en Épreuve et en Exercice (demande explicite
+  // utilisateur : même format de choix des notions dans les deux modes).
   const parts = !subject
     ? null
-    : mode === "exercice"
-    ? (subject === "Mathématiques" ? MATHS_PARTS_EXERCICE : null)
+    : mode === "exercice" && subject === "PCT"
+    ? null
     : partsFor(subject, classe);
   const MAX_NOTIONS = mode === "exercice" ? 2 : 3;
-  // Chimie optionnelle : PCT en 3e, 4e, 2nde C/D (classes en pool unique —
-  // `!parts` évite tout chevauchement avec 1ère/Tle, où Chimie est déjà
-  // obligatoire via `parts`).
-  const OPTIONAL_CHIMIE_CLASSES = new Set(["3e", "4e", "2nde C", "2nde D"]);
-  const showOptionalChimie = mode === "epreuve" && subject === "PCT" && !parts && OPTIONAL_CHIMIE_CLASSES.has(classe);
-  // Détail SA -> Activités appliqué au pool PCT (6e-2nde, pas de structure à
-  // 2 parties obligatoires) -- demande explicite utilisateur : même niveau
-  // de détail qu'en 1ère/Tle, en gardant le pool/Chimie optionnelle
-  // existants. Exclu du mode "exercice" (picker plat inchangé, hors scope
-  // de cette demande) -- cf. renderDetailPicker.
-  const usesPoolDetail = mode === "epreuve" && subject === "PCT" && !parts;
+  // Détail SA -> Activités appliqué au pool PCT (6e/5e en épreuve, et tout
+  // PCT en mode exercice -- jamais de scission Physique/Chimie dans ces cas,
+  // cf. calcul de `parts` plus haut) -- demande explicite utilisateur : même
+  // format de sélection des notions pour les exercices que pour les
+  // épreuves, cf. renderDetailPicker.
+  const usesPoolDetail = subject === "PCT" && !parts;
 
   // Notions sélectionnées, à plat (pool unique OU union des parties PCT) —
   // utilisé pour décider si la case "figure obligatoire" doit être proposée,
   // et repris tel quel dans le payload envoyé au backend.
   const flatSelectedNotions = useMemo(() => {
-    if (parts) return parts.flatMap((p) => picksToNotions(selectedPicksByPart[p.label] || []));
-    if (usesPoolDetail) {
-      const pool = picksToNotions(selectedPicksByPart["__pool__"] || []);
-      return includeChimie ? pool.concat(picksToNotions(selectedPicksByPart["__chimie__"] || [])) : pool;
-    }
+    if (parts) return parts.flatMap((p) => picksToNotions(selectedPicksByPart[p.label] || [], subject));
+    if (usesPoolDetail) return picksToNotions(selectedPicksByPart["__pool__"] || [], subject);
     return selectedNotions;
-  }, [parts, usesPoolDetail, selectedPicksByPart, includeChimie, selectedNotions]);
+  }, [parts, usesPoolDetail, selectedPicksByPart, selectedNotions]);
   const hasGeometryNotion = useMemo(
     () => flatSelectedNotions.some(isGeometryNotion),
     [flatSelectedNotions]
   );
-  // SVT : la case "schéma/graphique" est proposée dès qu'une notion est choisie
-  // (pas de notion "géométrique" en SVT) -- cf. svt_scene.py côté New_model.
+  // SVT/PCT : la case "schéma/graphique/circuit" est proposée dès qu'une
+  // notion est choisie, quelle que soit la classe ou la notion -- PCT
+  // couvre bien plus que des notions "géométriques" (circuits, montages de
+  // chimie, champs, etc., cf. figure_service_pct.py côté New_model), donc
+  // ne JAMAIS la restreindre à hasGeometryNotion (pensé pour les Maths)
+  // pour cette matière -- même principe que SVT, pas de notion
+  // "géométrique" au sens Maths non plus.
   const isSvt = subject === "SVT";
-  const showFigureOption = hasGeometryNotion || (isSvt && flatSelectedNotions.length > 0);
+  const isPct = subject === "PCT";
+  const showFigureOption = hasGeometryNotion
+    || ((isSvt || isPct) && flatSelectedNotions.length > 0);
 
-  // PCT UNIQUEMENT, TEMPORAIRE (demande explicite utilisateur : le compte
-  // DeepSeek -- moteur "verify" de Titan1 -- est à sec ; Titan1 sur PCT ne
-  // plante pas pour autant (repli, cf. backend), mais son filet de sécurité
-  // juge est inactif tant que le solde n'est pas rechargé). Retirer ce filtre
-  // une fois le solde reconstitué. Autres matières inchangées.
-  const availableMoteurs = subject === "PCT" ? MOTEURS.filter((m) => m.id === "titan2") : MOTEURS;
+  // Titan1 désormais bloqué GLOBALEMENT (toutes matières, cf. `disponible`
+  // sur MOTEURS ci-dessus) plutôt que filtré pour PCT seulement -- reste
+  // affiché dans le choix mais non sélectionnable.
+  const availableMoteurs = MOTEURS;
 
   function handleSubjectChange(s: string) {
     setSubject(s);
@@ -1396,7 +1873,7 @@ export default function GeneratePage() {
     setSelectedNotions([]);
     setSelectedPicksByPart({});
     setExpandedSAByPart({});
-    setIncludeChimie(false);
+    setResolutionPairChoice({});
     setPartie1Choice(null);
     setDuration(durationFor(s, nextClasse));
   }
@@ -1406,19 +1883,34 @@ export default function GeneratePage() {
     setSelectedNotions([]);
     setSelectedPicksByPart({});
     setExpandedSAByPart({});
-    setIncludeChimie(false);
+    setResolutionPairChoice({});
     setPartie1Choice(null);
     setDuration(durationFor(subject, c));
   }
 
   function handleModeChange(m: "epreuve" | "exercice") {
     setMode(m);
+    setExerciceType(null);
     setSelectedNotions([]);
     setSelectedPicksByPart({});
     setExpandedSAByPart({});
-    setIncludeChimie(false);
+    setResolutionPairChoice({});
     setPartie1Choice(null);
   }
+
+  // Les 3 choix (Épreuve complète / Exercice d'application / Interrogation
+  // écrite) sont affichés côte à côte en une seule étape (demande explicite
+  // utilisateur) : les deux derniers fixent mode="exercice" ET exerciceType
+  // en un seul clic, au lieu d'une étape intermédiaire séparée.
+  function handleTypeChoice(choice: "application" | "interrogation") {
+    handleModeChange("exercice");
+    setExerciceType(choice);
+  }
+
+  // "Exercice d'application" par défaut (comportement historique avant ce
+  // choix) tant que l'utilisateur n'a pas explicitement précisé -- mode
+  // Épreuve non concerné (pas de sous-type).
+  const exerciceTypeLabel = exerciceType === "interrogation" ? "Interrogation écrite" : "Exercice d'application";
 
   function toggleNotion(n: string) {
     setSelectedNotions((prev) => {
@@ -1442,117 +1934,185 @@ export default function GeneratePage() {
   // pick (une des MAX_NOTIONS sous-tâches de la partie), plusieurs Activités
   // de la MÊME SA comptent chacune séparément (demande explicite
   // utilisateur : le comptage se fait en Activités, pas en SA).
-  function toggleActivite(partLabel: string, sa: string, activite: string) {
+  function toggleActivite(partLabel: string, sa: string, notion: string, activite: string, viaSequence = false) {
     setSelectedPicksByPart((prev) => {
       const cur = prev[partLabel] || [];
-      const existingIdx = cur.findIndex((p) => p.sa === sa && p.activite === activite);
+      // `viaSequence` fait partie de la clé d'identité du pick : un pick
+      // "séquence entière" et un pick d'Activité précise de même nom
+      // (notion===activite) sont deux sélections DISTINCTES à ne jamais
+      // confondre lors du retrait (cf. NotionPick, commentaire ci-dessus).
+      const existingIdx = cur.findIndex(
+        (p) => p.sa === sa && p.notion === notion && p.activite === activite && !!p.viaSequence === viaSequence
+      );
       if (existingIdx >= 0) {
         return { ...prev, [partLabel]: cur.filter((_, i) => i !== existingIdx) };
       }
-      if (cur.length >= MAX_NOTIONS) return prev;
-      return { ...prev, [partLabel]: [...cur, { sa, activite }] };
+      // 4e/3e PCT (document officiel IGPM) : répartition FIXE -- Chimie a
+      // toujours exactement 1 notion (1 situation-problème), Physique
+      // toujours exactement 2 (2 situations-problèmes) -- pas un choix
+      // libre de l'utilisateur, cf. PCT_4E3E_CLASSES/validation plus bas.
+      const capForPart = (subject === "PCT" && PCT_4E3E_CLASSES.has(classe))
+        ? (partLabel === "Chimie" ? 1 : 2)
+        : MAX_NOTIONS;
+      if (cur.length >= capForPart) return prev;
+      return { ...prev, [partLabel]: [...cur, { sa, notion, activite, viaSequence }] };
     });
   }
 
+  // PCT UNIQUEMENT (demande explicite utilisateur) : questionnaire affiché
+  // SEULEMENT quand exactement 3 Activités sont cochées pour `label` ET
+  // qu'aucun regroupement par séquence n'est déductible automatiquement
+  // (cf. groupForResolution) -- demande à l'utilisateur lesquelles 2 des 3
+  // forment la situation-problème combinée. Jamais de blocage : non
+  // répondu = repli sur les 2 premières cochées (orderedPicksForResolution).
+  function renderResolutionQuestionnaire(label: string, picks: NotionPick[]) {
+    if (subject !== "PCT" || picks.length !== 3 || groupForResolution(picks)) return null;
+    const chosen = resolutionPairChoice[label] || [];
+    return (
+      <div className="esp-sa-panel">
+        <p className="esp-sa-head">
+          Ces 3 activités ne partagent pas une séquence commune : cochez les 2 qui formeront une situation-problème ensemble (la 3ᵉ restante formera l’autre, seule).
+        </p>
+        <div className="esp-sa-list">
+          <div className="esp-sa-group">
+            {picks.map((p) => {
+              const isChecked = chosen.includes(p.activite);
+              const disabled = !isChecked && chosen.length >= 2;
+              return (
+                <label key={p.activite} className={isChecked ? "is-on" : ""}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={disabled}
+                    onChange={() => {
+                      setResolutionPairChoice((prev) => {
+                        const cur = prev[label] || [];
+                        const without = cur.filter((a) => a !== p.activite);
+                        const next = (isChecked ? without : [...without, p.activite]).slice(0, 2);
+                        if (next.length === 0) {
+                          const rest = { ...prev };
+                          delete rest[label];
+                          return rest;
+                        }
+                        return { ...prev, [label]: next };
+                      });
+                    }}
+                  />
+                  {p.activite}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Picker SA -> Activités réutilisable pour les pools PLATS (pas de "partie"
-  // au sens PCT 1ère/Tle) : le pool principal PCT 6e-2nde (pseudo-label
-  // "__pool__") et sa Chimie optionnelle (pseudo-label "__chimie__") --
-  // demande explicite utilisateur (détail d'activité disponible à TOUTES
-  // les classes, pas seulement 1ère/Tle, en gardant le pool/Chimie
-  // optionnelle existants plutôt que la structure à 2 parties obligatoires).
+  // au sens PCT 1ère/Tle) : le pool PCT 6e/5e en épreuve et PCT en mode
+  // exercice (pseudo-label "__pool__") -- demande explicite utilisateur
+  // (même niveau de détail qu'en 1ère/Tle, même pour les classes sans
+  // structure à 2 parties obligatoires).
   // Réutilise telles quelles toggleExpandSA/toggleActivite/selectedPicksByPart
   // (déjà génériques par "label") avec un pseudo-label au lieu d'un vrai
   // part.label -- aucun nouvel état nécessaire.
-  function renderDetailPicker(pseudoLabel: string, saList: string[], detailsMap: Record<string, Record<string, SaGroup[]>>) {
+  function renderDetailPicker(pseudoLabel: string, saList: string[], detailsMap: Record<string, Record<string, SaGroup[]>>, allowSequencePick = false) {
     const picked = selectedPicksByPart[pseudoLabel] || [];
     const expandedSA = expandedSAByPart[pseudoLabel] || null;
+    const groups = expandedSA ? detailsMap[classe]?.[expandedSA] : undefined;
     return (
       <>
-        <div className="flex flex-wrap gap-2">
+        <div className="esp-sa-chips">
           {saList.map((sa) => {
             const countForSA = picked.filter((p) => p.sa === sa).length;
             const isOpen = expandedSA === sa;
             return (
-              <button
-                key={sa}
-                type="button"
-                onClick={() => toggleExpandSA(pseudoLabel, sa)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all inline-flex items-center gap-1.5",
-                  countForSA > 0
-                    ? "bg-amber-600 text-white border-amber-600"
-                    : isOpen
-                    ? "bg-amber-50 text-amber-700 border-amber-300"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-600"
-                )}
-              >
-                {saChipLabel(classe, sa)}
-                {countForSA > 0 && (
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-[10px] font-semibold">
-                    {countForSA}
-                  </span>
-                )}
+              <button key={sa} type="button" aria-expanded={isOpen} onClick={() => toggleExpandSA(pseudoLabel, sa)}
+                className={cn("esp-sa", isOpen && "is-open", countForSA > 0 && "has-picks")}>
+                {saChipLabel(classe, sa)}{countForSA > 0 && <i>{countForSA}</i>}
               </button>
             );
           })}
         </div>
-        {expandedSA && (() => {
-          const groups = detailsMap[classe]?.[expandedSA];
-          if (!groups || groups.length === 0) {
-            return (
-              <p className="text-xs text-slate-400 italic px-1">
-                Détail des activités non disponible pour cette SA.
-              </p>
-            );
-          }
-          const renderItem = (item: string) => {
-            const isSelected = picked.some((p) => p.sa === expandedSA && p.activite === item);
-            const isDisabled = !isSelected && picked.length >= MAX_NOTIONS;
-            return (
-              <label
-                key={item}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer",
-                  isSelected
-                    ? "bg-amber-100 text-amber-800"
-                    : isDisabled
-                    ? "text-slate-300 cursor-not-allowed"
-                    : "text-slate-600 hover:bg-amber-50"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  disabled={isDisabled}
-                  onChange={() => toggleActivite(pseudoLabel, expandedSA, item)}
-                  className="w-3.5 h-3.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                />
-                {item}
-              </label>
-            );
-          };
-          return (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2">
-              <p className="px-1 pb-1 text-xs font-medium text-slate-500 truncate" title={saChipLabel(classe, expandedSA)}>
-                {saChipLabel(classe, expandedSA)} - choisis au moins une activité à évaluer
-              </p>
-              <div className="max-h-48 overflow-y-auto space-y-0.5">
-                {groups.map((grp) => (
-                  <div key={grp.label}>
-                    <p className="px-2 pt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{grp.label}</p>
-                    {grp.items.map(renderItem)}
-                  </div>
-                ))}
+        {expandedSA && (!groups || groups.length === 0
+          ? <p className="esp-hint">Détail des activités non disponible pour cette SA.</p>
+          : <div className="esp-sa-panel">
+              <p className="esp-sa-head"><BookOpen aria-hidden="true" />{saChipLabel(classe, expandedSA)} · cochez au moins une activité à évaluer</p>
+              <div className="esp-sa-list">
+                {groups.map((grp) => {
+                  // Sélection de la Notion ENTIÈRE comme "séquence" (demande
+                  // explicite utilisateur, Maths uniquement -- allowSequencePick) :
+                  // réutilise exactement toggleActivite/pickValue avec
+                  // activite===notion, l'encodage "nom nu" déjà géré pour les
+                  // groupes à 1 seul item (cf. pickValue ligne ~1284) -- aucune
+                  // nouvelle fonction ni changement backend nécessaire.
+                  const isMultiItem = grp.items.length > 1;
+                  const sequencePicked = picked.some(
+                    (p) => p.sa === expandedSA && p.notion === grp.label && p.viaSequence
+                  );
+                  const hasIndividualPick = picked.some(
+                    (p) => p.sa === expandedSA && p.notion === grp.label && !p.viaSequence
+                  );
+                  const canToggleSequence = allowSequencePick && isMultiItem;
+                  return (
+                    <div key={grp.label} className="esp-sa-group">
+                      {canToggleSequence ? (
+                        <button
+                          type="button"
+                          className={cn("esp-sequence-toggle", sequencePicked && "is-on")}
+                          disabled={!sequencePicked && (hasIndividualPick || picked.length >= MAX_NOTIONS)}
+                          onClick={() => toggleActivite(pseudoLabel, expandedSA, grp.label, grp.label, true)}
+                          title={sequencePicked
+                            ? "Toute la séquence est sélectionnée pour un problème — cliquer pour la désélectionner"
+                            : hasIndividualPick
+                            ? "Décochez d'abord l'activité déjà cochée dans cette séquence pour pouvoir la sélectionner entière"
+                            : "Sélectionner toute la séquence pour un problème (au lieu d'une activité précise)"}
+                        >
+                          {sequencePicked ? <Check aria-hidden="true" /> : <Layers aria-hidden="true" />}
+                          {grp.label}{sequencePicked ? " · séquence entière sélectionnée" : " · sélectionner toute la séquence"}
+                        </button>
+                      ) : (
+                        <span>{grp.label}</span>
+                      )}
+                      {grp.items.map((item) => {
+                        // `!p.viaSequence` est ce qui distingue ce pick "cet
+                        // item précis" du pick "séquence entière" même quand
+                        // un item porte EXACTEMENT le même nom que sa notion
+                        // (ex. groupe "Division dans ℕ" contenant lui-même
+                        // l'item "Division dans ℕ" + "Produit de facteurs
+                        // premiers") -- sans ce champ, les deux picks étaient
+                        // indiscernables (notion===activite dans les deux
+                        // cas) : cocher cette seule Activité affichait à tort
+                        // "séquence entière sélectionnée" et verrouillait les
+                        // autres Activités du groupe (bug signalé par
+                        // l'utilisateur, 2026-10-31).
+                        const on = picked.some(
+                          (p) => p.sa === expandedSA && p.notion === grp.label && p.activite === item && !p.viaSequence
+                        );
+                        const lockedBySequence = isMultiItem && sequencePicked;
+                        return (
+                          <label key={item} className={on ? "is-on" : ""}>
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              disabled={lockedBySequence || (!on && picked.length >= MAX_NOTIONS)}
+                              onChange={() => toggleActivite(pseudoLabel, expandedSA, grp.label, item)}
+                            />
+                            {item}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          );
-        })()}
+            </div>)}
         {picked.length > 0 && (
-          <p className="text-xs text-amber-600 font-medium">
+          <p className={cn("esp-sa-count", picked.length >= MAX_NOTIONS && "is-ok")}>
             {picked.length}/{MAX_NOTIONS} activité{picked.length > 1 ? "s" : ""} sélectionnée{picked.length > 1 ? "s" : ""}
-            {picked.length >= MAX_NOTIONS && " (maximum atteint)"}
           </p>
         )}
+        {renderResolutionQuestionnaire(pseudoLabel, picked)}
       </>
     );
   }
@@ -1560,9 +2120,17 @@ export default function GeneratePage() {
 
   async function handleSubmit(chosenEngine: "titan1" | "titan2") {
     if (!mode || !subject) return;
-    if (!isAdmin && !is_unlimited && exams_remaining <= 0) {
-      openPaywall("exam");
-      return;
+    // Les exercices ne sont jamais facturés : aucun contrôle de quota, pour
+    // aucune matière, quand mode === "exercice".
+    if (!isAdmin && !is_unlimited && mode !== "exercice") {
+      if (exams_remaining <= 0) {
+        openPaywall("exam");
+        return;
+      }
+      if (subject === "PCT" && pct_exams_remaining <= 0) {
+        openPaywall("pct");
+        return;
+      }
     }
 
     const isCollege = COLLEGE.has(classe);
@@ -1570,31 +2138,32 @@ export default function GeneratePage() {
     // d'abord, puis les notions "secondaires" des combinaisons ensuite (cf.
     // picksToNotions) — jamais l'inverse, pour ne pas casser l'assignation
     // par position des sous-tâches côté génération.
+    // PCT UNIQUEMENT : réordonne d'abord les picks (couple + isolée, cf.
+    // orderedPicksForResolution) avant de les convertir en chaînes -- cet
+    // ordre encode la répartition Mobilisation/Résolution côté backend.
     const notionsByPart: Record<string, string[]> = parts
-      ? Object.fromEntries(parts.map((p) => [p.label, picksToNotions(selectedPicksByPart[p.label] || [])]))
+      ? Object.fromEntries(parts.map((p) => [
+          p.label,
+          picksToNotions(orderedPicksForResolution(selectedPicksByPart[p.label] || [], resolutionPairChoice[p.label]), subject),
+        ]))
       : {};
     const flatTopics = parts
       ? parts.flatMap((p) => notionsByPart[p.label] || [])
       : usesPoolDetail
-      ? picksToNotions(selectedPicksByPart["__pool__"] || [])
+      ? picksToNotions(orderedPicksForResolution(selectedPicksByPart["__pool__"] || [], resolutionPairChoice["__pool__"]), subject)
       : selectedNotions;
-    // Chimie optionnelle (PCT 2nde C/D) : transmise via topics_by_part, comme
-    // pour les matières déjà en structure à parties — le backend en déduit
-    // le nombre de sous-tâches Chimie (2 ou 3) à partir du nombre de notions.
-    const chimieTopics = showOptionalChimie && includeChimie
-      ? picksToNotions(selectedPicksByPart["__chimie__"] || [])
-      : [];
     const examData = mode === "exercice"
       ? {
-          title: `Exercice de ${subject} - ${classe}`,
+          title: `${exerciceTypeLabel} de ${subject} - ${classe}`,
           subject,
           level: classe,
           // flatTopics = selectedNotions pour tout sujet sans `parts` (donc
-          // inchangé pour les autres matières) ; pour Mathématiques en mode
-          // Exercice, `parts` est actif (MATHS_PARTS_EXERCICE) -> reprend
-          // les activités cochées dans le picker à 3 niveaux.
+          // inchangé pour PCT en mode Exercice, cf. usesPoolDetail) ; pour
+          // Mathématiques et SVT, `parts` reste actif en mode Exercice comme
+          // en Épreuve -> reprend les activités cochées dans le picker.
           topics: flatTopics,
           mode: "exercice" as const,
+          exercice_type: exerciceType ?? "application",
           num_questions: isCollege ? 8 : 10,
           difficulty: "mixed",
           question_type: "mixed",
@@ -1610,7 +2179,6 @@ export default function GeneratePage() {
           duration_minutes: duration,
           topics: flatTopics,
           ...(parts ? { topics_by_part: notionsByPart } : {}),
-          ...(chimieTopics.length >= 2 ? { topics_by_part: { "Chimie": chimieTopics } } : {}),
           ...(subject === "SVT" && (classe === "6e" || classe === "5e")
             ? { partie1_choice: partie1Choice ?? "partie1_association" }
             : {}),
@@ -1632,14 +2200,14 @@ export default function GeneratePage() {
     setActiveSteps(new Set());
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
     try {
       const resp = await fetch(`${apiUrl}/exams/stream`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "X-CSRF-Token": getCsrfToken() || "",
         },
         body: JSON.stringify(examData),
       });
@@ -1648,7 +2216,11 @@ export default function GeneratePage() {
         const err = await resp.json().catch(() => ({}));
         if (resp.status === 402) {
           setPhase("form");
-          openPaywall("exam");
+          openPaywall(err?.detail?.code === "PCT_QUOTA_EXCEEDED" ? "pct" : "exam");
+          return;
+        }
+        if (resp.status === 403 && isCsrfInvalidDetail(err?.detail)) {
+          await redirectToLoginAfterCsrfFailure();
           return;
         }
         throw new Error(err?.detail || `Erreur ${resp.status}`);
@@ -1697,6 +2269,11 @@ export default function GeneratePage() {
             receivedDone = true;
             setExamId(event.exam_id as string);
             setPhase("done");
+            // Demande explicite utilisateur (UX) : passer directement sur la
+            // page de l'épreuve (téléchargements PDF/Word, zoom...) plutôt
+            // que d'obliger un clic sur "Voir l'épreuve" une fois la
+            // génération terminée.
+            router.push(`/dashboard/exams/${event.exam_id as string}`);
           } else if (event.type === "error") {
             throw new Error(event.message as string);
           }
@@ -1726,9 +2303,18 @@ export default function GeneratePage() {
 
   // Forme des étapes propre à la matière choisie — pool unique (maths/SVT)
   // ou une étape par sous-tâche de chaque partie (PCT).
+  // 4e/3e PCT (scission asymétrique) : nombre de notions choisies PAR
+  // PARTIE, pour que la barre de progression affiche la bonne forme
+  // (mobilisation + 1 ou 2 situations-problèmes, cf. stepsAndLabelsFor).
+  const partsNotionCountsForProgress = (subject === "PCT" && PCT_4E3E_CLASSES.has(classe) && parts)
+    ? parts.map((p) => (selectedPicksByPart[p.label] || []).length)
+    : null;
   const { steps: STEPS, labels: STEP_LABELS } = useMemo(
-    () => stepsAndLabelsFor(subject || "Mathématiques", classe, mode || "epreuve", flatSelectedNotions.length),
-    [subject, classe, mode, flatSelectedNotions.length]
+    () => stepsAndLabelsFor(
+      subject || "Mathématiques", classe, mode || "epreuve", flatSelectedNotions.length,
+      partie1Choice, partsNotionCountsForProgress
+    ),
+    [subject, classe, mode, flatSelectedNotions.length, partie1Choice, partsNotionCountsForProgress]
   );
 
   // Texte affiché toujours dans l'ordre canonique des étapes (Contexte, Tâche,
@@ -1747,739 +2333,285 @@ export default function GeneratePage() {
   // ── Rendu ─────────────────────────────────────────────────────────────────
 
   if (phase === "streaming" || phase === "done" || phase === "error") {
+    const kind = mode === "exercice" ? exerciceTypeLabel : "Épreuve";
     return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Génération en cours</h1>
-            <p className="text-slate-500 mt-1 text-sm">{subject} · Classe {classe}</p>
-          </div>
-          {phase === "done" && (
-            <button onClick={handleRestart} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-              ← Nouvelle épreuve
-            </button>
-          )}
-        </div>
+      <div className="esp-page">
+        <PageHead eyebrow={`${kind} · ${subject} · Classe ${classe}`}
+          title={phase === "done" ? "Génération terminée" : phase === "error" ? "Génération interrompue" : "Génération en cours"}
+          subtitle={phase === "streaming" ? "L’épreuve s’écrit sous vos yeux, formules et figures comprises." : undefined}
+          actions={phase !== "streaming" ? (
+            <span className="esp-row-actions">
+              {phase === "done" && examId && (
+                <Button variant="framed" onClick={() => router.push(`/dashboard/exams/${examId}`)}><Eye /> Voir l’épreuve</Button>
+              )}
+              <Button variant="framed" onClick={handleRestart}><RotateCcw /> Nouvelle génération</Button>
+            </span>
+          ) : undefined} />
 
-        {/* Barre de progression par étape */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span>{phase === "done" ? "Génération terminée" : phase === "error" ? "Erreur"
-              : doneCount >= STEPS.length ? "Finalisation (figures, contextes et tâches), encore quelques minutes..."
-              : `Génération en cours, veuillez patienter... ${progress}%`}</span>
+        <div className="esp-progress">
+          <div className="esp-progress-top">
+            <span>{phase === "done" ? "Génération terminée, téléchargez le PDF ou le Word" : phase === "error" ? "Erreur"
+              : doneCount >= STEPS.length ? "Finalisation (figures, contextes et tâches), encore quelques minutes…"
+              : `Génération en cours, veuillez patienter… ${progress} %`}</span>
             <span>{doneCount}/{STEPS.length} étapes</span>
           </div>
-
-          {/* Progress bar */}
-          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                phase === "error" ? "bg-red-500" : phase === "done" ? "bg-emerald-500" : "bg-indigo-500"
-              )}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          {/* Étapes */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="esp-progress-track"><span style={{ width: `${progress}%` }} /></div>
+          <div className="esp-progress-steps">
             {STEPS.map((step) => {
               const done = completedSteps.includes(step);
               const active = activeSteps.has(step);
-              return (
-                <div
-                  key={step}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                    done ? "bg-slate-50 border-slate-200 text-slate-700"
-                    : active ? "bg-slate-100 border-slate-300 text-slate-700 animate-pulse"
-                    : "bg-slate-50 border-slate-100 text-slate-400"
-                  )}
-                >
-                  {done
-                    ? <CheckCircle2 className="w-3 h-3" />
-                    : active
-                    ? <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse inline-block" />
-                    : <span className="w-2 h-2 rounded-full bg-slate-200 inline-block" />
-                  }
-                  {STEP_LABELS[step]}
-                </div>
-              );
+              return <span key={step} className={done ? "is-done" : active ? "is-active" : ""}>{done ? <Check /> : <i />}{STEP_LABELS[step]}</span>;
             })}
           </div>
         </div>
 
-        {/* Zone de preview en streaming */}
-        {phase !== "error" && (
-          <div
-            ref={previewRef}
-            className="bg-white rounded-2xl border border-slate-100 p-6 h-96 overflow-y-auto font-mono text-sm text-slate-700 whitespace-pre-wrap leading-relaxed"
-          >
-            {streamText || <span className="text-slate-300 italic">L&apos;épreuve s&apos;affiche ici…</span>}
-            {phase === "streaming" && (
-              <span className="inline-block w-0.5 h-4 bg-indigo-500 animate-pulse ml-0.5 align-middle" />
-            )}
-          </div>
-        )}
-
-        {/* Erreur */}
         {phase === "error" && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex gap-4">
-            <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-red-700">Erreur lors de la génération</p>
-              <p className="text-sm text-red-600 mt-1">{errorMsg}</p>
-              <button
-                onClick={handleRestart}
-                className="mt-3 text-sm font-medium text-red-600 hover:text-red-800 underline"
-              >
-                Réessayer
-              </button>
-            </div>
+          <div className="esp-error" role="alert">
+            <strong>Erreur lors de la génération.</strong> {errorMsg}{" "}
+            <button type="button" className="esp-inline-link" onClick={handleRestart}>Réessayer</button>
           </div>
         )}
 
-        {/* Actions après génération */}
-        {phase === "done" && examId && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-slate-600 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-slate-900">
-                  {mode === "exercice" ? "Exercice généré avec succès !" : "Épreuve générée avec succès !"}
-                </p>
-                <p className="text-sm text-slate-600">Téléchargez-la ou consultez-la dans vos épreuves.</p>
+        {phase !== "error" && (
+          <ZoomableDocument>
+            <div className="esp-sheet" ref={previewRef} aria-live="polite">
+              <div className="esp-sheet-head"><span>Mathiis · {kind}</span><span>Classe {classe}</span></div>
+              <h2>{subject}</h2>
+              <p className="esp-sheet-meta">Classe : {classe}{mode === "epreuve" ? ` · Durée : ${formatDuree(duration)}` : ""}</p>
+              <div className="esp-sheet-body">
+                {streamText
+                  ? <ExamMarkdown text={streamText} streaming={phase === "streaming"} />
+                  : <div className="esp-sheet-blank">{Array.from({ length: 7 }, (_, i) => <i key={i} style={{ width: `${90 - (i % 3) * 18}%` }} />)}<p>L’épreuve s’affiche ici…</p></div>}
+                {phase === "streaming" && <span className="esp-caret" aria-hidden="true" />}
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={async () => {
-                  setDownloading(true);
-                  try {
-                    await downloadPdf(examId);
-                  } catch {
-                    toast.error("Échec du téléchargement du PDF");
-                  } finally {
-                    setDownloading(false);
-                  }
-                }}
-                disabled={downloading}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
-              >
-                <Download className="w-4 h-4" />
-                {downloading ? "Téléchargement..." : "Télécharger le PDF"}
-              </button>
-              <button
-                onClick={() => router.push(`/dashboard/exams/${examId}`)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                Voir l&apos;épreuve
-              </button>
-              <button
-                onClick={() => router.push("/dashboard/exams")}
-                className="flex items-center gap-2 px-5 py-2.5 text-slate-500 hover:text-slate-700 text-sm transition-colors"
-              >
-                Mes épreuves →
-              </button>
-            </div>
-          </div>
+          </ZoomableDocument>
         )}
       </div>
     );
   }
 
-  // ── Formulaire ────────────────────────────────────────────────────────────
+  // Checks the picks against the programme rules, then asks which engine to use.
+  function validateAndChooseEngine() {
+    if (parts && subject === "PCT" && mode === "epreuve" && PCT_4E3E_CLASSES.has(classe)) {
+      // 4e/3e PCT (document officiel IGPM) : Chimie toujours exactement 1
+      // activité (imposé) ; Physique 1 ou 2.
+      for (const p of parts) {
+        const n = (selectedPicksByPart[p.label] || []).length;
+        if (p.label === "Chimie") {
+          if (n !== 1) {
+            toast.error(`Sélectionne exactement 1 activité pour la partie ${p.label}`);
+            return;
+          }
+        } else if (n < 1 || n > 2) {
+          toast.error(`Sélectionne 1 ou 2 activités pour la partie ${p.label}`);
+          return;
+        }
+      }
+    } else if (parts) {
+      // Mode Exercice : toujours 1 ou 2 activités, quelle que soit la matière --
+      // jamais la règle épreuve de MIN_NOTIONS_BY_SUBJECT (ex. SVT 2-ou-3).
+      // PCT 2nde/1ère/Tle (demande explicite utilisateur) : 2 OU 3 activités
+      // par partie (au lieu d'exactement 3) -- Mobilisation porte alors sur
+      // toutes, Résolution se répartit par séquence côté generator.py.
+      const isPctSecondCycle = subject === "PCT" && PCT_SECOND_CYCLE_CLASSES.has(classe);
+      const minForSubject = mode === "exercice"
+        ? 1
+        : isPctSecondCycle
+        ? 2
+        : subject ? (MIN_NOTIONS_BY_SUBJECT[subject] ?? MAX_NOTIONS) : MAX_NOTIONS;
+      const missing = parts.filter((p) => {
+        const n = (selectedPicksByPart[p.label] || []).length;
+        return n < minForSubject || n > MAX_NOTIONS;
+      });
+      if (missing.length > 0) {
+        const countTxt = minForSubject === MAX_NOTIONS
+          ? `exactement ${MAX_NOTIONS} activités`
+          : `entre ${minForSubject} et ${MAX_NOTIONS} activités`;
+        toast.error(`Sélectionne ${countTxt} (dans les SA de ton choix) pour la partie ${missing[0].label}`);
+        return;
+      }
+    } else if (usesPoolDetail) {
+      const nPool = (selectedPicksByPart["__pool__"] || []).length;
+      if (mode === "exercice") {
+        if (nPool < 1 || nPool > 2) {
+          toast.error("Sélectionne 1 ou 2 activités (dans les SA de ton choix) pour générer un exercice");
+          return;
+        }
+      } else if (subject === "PCT" && (classe === "6e" || classe === "5e")) {
+        // 6e/5e PCT (demande explicite utilisateur) : 2 ou 3
+        // activités (au lieu d'exactement 3).
+        if (nPool < 2 || nPool > MAX_NOTIONS) {
+          toast.error(`Sélectionne 2 ou ${MAX_NOTIONS} activités (dans les SA de ton choix) avant de générer l'épreuve`);
+          return;
+        }
+      } else if (nPool !== MAX_NOTIONS) {
+        toast.error(`Sélectionne exactement ${MAX_NOTIONS} activités (dans les SA de ton choix) avant de générer l'épreuve`);
+        return;
+      }
+    } else if (mode === "exercice") {
+      if (selectedNotions.length < 1 || selectedNotions.length > 2) {
+        toast.error("Sélectionne 1 ou 2 notions pour générer un exercice");
+        return;
+      }
+    } else if (selectedNotions.length !== MAX_NOTIONS) {
+      toast.error(`Sélectionne exactement ${MAX_NOTIONS} notions au programme avant de générer l'épreuve`);
+      return;
+    }
+    setShowEngineModal(true);
+  }
+
+  const ready = !!mode && !!subject && (mode !== "exercice" || !!exerciceType);
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Générer une épreuve</h1>
-        <p className="text-slate-500 mt-1">
-          Configurez les paramètres : la génération s&apos;affiche en direct.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-6">
-        {isAdmin && (
-          <>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Zap className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-slate-900">Mode rapide</h2>
-                <p className="text-xs text-slate-400">Génération en direct · résultat visible en temps réel</p>
-              </div>
-              <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">
-                <Layers className="w-3 h-3" />Standard
-              </span>
+    <div className="esp-page">
+      <PageHead eyebrow="Nouvelle épreuve" title="Générer une épreuve" subtitle="Configurez les paramètres : la génération s’affiche en direct." />
+      <div className="esp-gen is-form">
+        <form className="esp-panel esp-gen-form" onSubmit={(e) => { e.preventDefault(); validateAndChooseEngine(); }}>
+          <fieldset><legend><span>1</span>Type de génération</legend>
+            <div className="esp-choice-row three">
+              <Choice selected={mode === "epreuve"} onClick={() => handleModeChange("epreuve")}><span><strong>Épreuve complète</strong><small>3 problèmes + contexte / tâche</small></span></Choice>
+              <Choice selected={mode === "exercice" && exerciceType === "application"} onClick={() => handleTypeChoice("application")}><span><strong>Exercice d&apos;application</strong><small>S&apos;entraîner sur la notion</small></span></Choice>
+              <Choice selected={mode === "exercice" && exerciceType === "interrogation"} onClick={() => handleTypeChoice("interrogation")}><span><strong>Interrogation écrite</strong><small>Évaluation type questionnaire</small></span></Choice>
             </div>
+          </fieldset>
 
-            <hr className="border-slate-100" />
-          </>
-        )}
-
-        {/* Type de génération : épreuve complète ou exercice isolé */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Type de génération</label>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { id: "epreuve" as const, label: "Épreuve complète", desc: "3 problèmes + contexte/tâche" },
-              { id: "exercice" as const, label: "Exercice", desc: "" },
-            ]).map((m) => (
-              <button
-                key={m.id}
-                onClick={() => handleModeChange(m.id)}
-                className={cn(
-                  "text-left rounded-xl border p-3 transition-all",
-                  mode === m.id
-                    ? "border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50"
-                    : "border-slate-200 hover:border-slate-300"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      mode === m.id ? "border-indigo-600" : "border-slate-300"
-                    )}
-                  >
-                    {mode === m.id && <span className="w-2 h-2 rounded-full bg-indigo-600" />}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900">{m.label}</span>
-                </div>
-                {m.desc && <div className="text-xs text-slate-400 mt-0.5 ml-6">{m.desc}</div>}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Matière */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Matière</label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-            {SUBJECTS.map(({ key, desc, Icon, selected, iconWrap }) => {
-              const isSelected = subject === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => handleSubjectChange(key)}
-                  className={cn(
-                    "min-w-0 text-left rounded-xl border p-2 sm:p-3 transition-all",
-                    isSelected ? selected : "border-slate-200 hover:border-slate-300"
-                  )}
-                >
-                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                    <div className={cn("w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center", iconWrap)}>
-                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                    <span
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                        isSelected ? "border-indigo-600" : "border-slate-300"
-                      )}
-                    >
-                      {isSelected && <span className="w-2 h-2 rounded-full bg-indigo-600" />}
-                    </span>
-                  </div>
-                  <div className="text-xs sm:text-sm font-semibold text-slate-900 leading-tight break-words">{key}</div>
-                  <div className="hidden sm:block text-xs text-slate-400 mt-0.5 line-clamp-2">{desc}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {!mode || !subject ? (
-          <p className="text-sm text-slate-400 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
-            Choisis un type de génération et une matière pour continuer.
-          </p>
-        ) : (
-        <>
-        {/* Classe */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Classe</label>
-          <div className="relative">
-            <select
-              value={classe}
-              onChange={(e) => handleClasseChange(e.target.value)}
-              className="w-full appearance-none px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white pr-10"
-            >
-              {CLASSES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+          <fieldset><legend><span>2</span>Matière</legend>
+            <div className="esp-choice-row three">
+              {SUBJECTS.map(({ key, desc }) => (
+                <Choice key={key} className="tall" selected={subject === key} onClick={() => handleSubjectChange(key)}>
+                  <span><i className="esp-symbol" aria-hidden="true">{SUBJECT_SYMBOLS[key]}</i><strong>{key}</strong><small>{desc}</small></span>
+                </Choice>
               ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* Durée — fixée par classe (grille officielle), non modifiable ;
-            pas de durée pour un exercice isolé (pas d'épreuve chronométrée). */}
-        {mode === "epreuve" && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Durée
-            </label>
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {formatDuree(duration)}
-              </div>
-              <span className="text-xs text-slate-400">
-                Durée officielle fixée pour la classe {classe}
-              </span>
             </div>
-          </div>
-        )}
+          </fieldset>
 
-        {/* Notions */}
-        {parts ? (
-          <div className="space-y-5">
-            {parts.map((part) => {
-              const partNotions = part.notions[classe] || [];
-              const picked = selectedPicksByPart[part.label] || [];
-              const expandedSA = expandedSAByPart[part.label] || null;
-              const minForSubject = subject ? (MIN_NOTIONS_BY_SUBJECT[subject] ?? MAX_NOTIONS) : MAX_NOTIONS;
-              return (
-                <div key={part.label} className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                    {part.label === "Notions" ? "Notions" : `Notions - ${part.label}`}
-                    <span className="text-xs text-slate-400 font-normal">
-                      {minForSubject === MAX_NOTIONS
-                        ? `(${MAX_NOTIONS} activités obligatoires)`
-                        : `(${minForSubject} à ${MAX_NOTIONS} activités)`}
-                    </span>
-                  </label>
-                  {subject === "SVT" && (
-                    <p className="text-[11px] text-slate-400 -mt-1">
-                      La 1ʳᵉ activité cochée alimente la Restitution (Partie I), les suivantes le Problème (Partie II).
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {partNotions.map((sa) => {
-                      const countForSA = picked.filter((p) => p.sa === sa).length;
-                      const isOpen = expandedSA === sa;
-                      return (
-                        <button
-                          key={sa}
-                          type="button"
-                          onClick={() => toggleExpandSA(part.label, sa)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all inline-flex items-center gap-1.5",
-                            countForSA > 0
-                              ? "bg-amber-600 text-white border-amber-600"
-                              : isOpen
-                              ? "bg-amber-50 text-amber-700 border-amber-300"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:text-amber-600"
-                          )}
-                        >
-                          {saChipLabel(classe, sa)}
-                          {countForSA > 0 && (
-                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/25 text-[10px] font-semibold">
-                              {countForSA}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* SA ouverte : liste à cocher de ses groupes (Activités/TP
-                      pour PCT, Séquences pour SVT) -- le comptage
-                      (MAX_NOTIONS) porte sur les Activités cochées, jamais
-                      sur la SA elle-même (demande explicite utilisateur) :
-                      choisir une SA sans cocher au moins une Activité ne
-                      sélectionne donc rien. */}
-                  {expandedSA && (() => {
-                    const groups = part.details?.[classe]?.[expandedSA];
-                    if (!groups || groups.length === 0) {
-                      return (
-                        <p className="text-xs text-slate-400 italic px-1">
-                          Détail des activités non disponible pour cette SA.
-                        </p>
-                      );
-                    }
-                    const atMax = picked.length >= MAX_NOTIONS;
-                    const renderItem = (item: string) => {
-                      const checked = picked.some((p) => p.sa === expandedSA && p.activite === item);
-                      const disabled = !checked && atMax;
-                      return (
-                        <label
-                          key={item}
-                          className={cn(
-                            "flex items-start gap-2 px-2 py-1 rounded-md text-xs",
-                            disabled ? "text-slate-300 cursor-not-allowed" : "text-slate-600 hover:bg-amber-50 cursor-pointer"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={disabled}
-                            onChange={() => toggleActivite(part.label, expandedSA, item)}
-                            className="mt-0.5 shrink-0"
-                          />
-                          <span>{item}</span>
-                        </label>
-                      );
-                    };
+          {!ready ? (
+            <p className="esp-hint">Choisissez le type de génération et la matière pour continuer.</p>
+          ) : (<>
+            <fieldset><legend><span>3</span>Classe</legend>
+              <div className="esp-select">
+                <select id="gen-classe" value={classe} onChange={(e) => handleClasseChange(e.target.value)} aria-label="Classe">
+                  {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <ChevronDown aria-hidden="true" />
+              </div>
+              {/* Durée fixée par classe (grille officielle), non modifiable ; pas de durée pour un exercice isolé. */}
+              {mode === "epreuve" && (
+                <div className="esp-duree"><Clock aria-hidden="true" /><strong>{formatDuree(duration)}</strong><span>Durée officielle fixée pour la classe {classe}{subject === "SVT" ? " en SVT" : ""}</span></div>
+              )}
+            </fieldset>
+
+            <fieldset><legend><span>4</span>Notions <em>{mode === "exercice" ? "1 ou 2 activités" : subject === "SVT" ? "2 ou 3 activités" : `${MAX_NOTIONS} activités obligatoires`}</em></legend>
+              {parts ? (
+                <div className="esp-gen-parts">
+                  {parts.map((part) => (
+                    <div key={part.label} className="esp-gen-part">
+                      {part.label !== "Notions" && <p className="esp-gen-part-title">{part.label}</p>}
+                      {renderDetailPicker(part.label, part.notions[classe] || [], part.details ?? {}, subject === "Mathématiques")}
+                    </div>
+                  ))}
+                  {subject === "SVT" && <p className="esp-hint">La 1ʳᵉ activité cochée alimente la Restitution (Partie I), les suivantes le Problème (Partie II).</p>}
+                  {subject === "SVT" && (classe === "6e" || classe === "5e") && (() => {
+                    // SVT 6e/5e uniquement : type de Partie I choisi par l'enseignant. « Paragraphe » désactivé
+                    // si la 1ère activité cochée (convention : notions[0] -> Partie I) a une SA < 2.
+                    const firstPick = (selectedPicksByPart["Notions"] || [])[0];
+                    const sa1 = firstPick ? PCT_SA_NUMBER[classe]?.[firstPick.sa] ?? SVT_SA_NUMBER[classe]?.[firstPick.sa] : undefined;
+                    const paragrapheOk = sa1 !== undefined && sa1 >= 2;
+                    const options = [
+                      { id: "partie1_association", label: "Association" },
+                      { id: "partie1_lacunaire", label: "Test lacunaire" },
+                      { id: "partie1_paragraphe", label: "Paragraphe" },
+                    ];
                     return (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-2">
-                        <p className="px-1 pb-1 text-xs font-medium text-slate-500 truncate" title={saChipLabel(classe, expandedSA)}>
-                          {saChipLabel(classe, expandedSA)} - choisis au moins une activité à évaluer
-                        </p>
-                        <div className="max-h-48 overflow-y-auto space-y-0.5">
-                          {groups.map((grp) => (
-                            <div key={grp.label}>
-                              <p className="px-2 pt-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{grp.label}</p>
-                              {grp.items.map(renderItem)}
-                            </div>
-                          ))}
+                      <div className="esp-gen-part">
+                        <p className="esp-gen-part-title">Type de Partie I</p>
+                        <div className="esp-seg" role="radiogroup" aria-label="Type de Partie I">
+                          {options.map((opt) => {
+                            const disabled = opt.id === "partie1_paragraphe" && !paragrapheOk;
+                            const on = (partie1Choice ?? "partie1_association") === opt.id;
+                            return <button key={opt.id} type="button" role="radio" aria-checked={on} disabled={disabled} className={on ? "is-on" : ""} onClick={() => setPartie1Choice(opt.id)}
+                              title={disabled ? "Disponible à partir de la SA2 de la 1ère activité choisie" : undefined}>{opt.label}</button>;
+                          })}
                         </div>
                       </div>
                     );
                   })()}
-                  {picked.length > 0 && (
-                    <p className="text-xs text-amber-600 font-medium">
-                      {picked.length}/{MAX_NOTIONS} activité{picked.length > 1 ? "s" : ""} sélectionnée{picked.length > 1 ? "s" : ""}
-                      {picked.length >= MAX_NOTIONS && " (maximum atteint)"}
-                    </p>
-                  )}
                 </div>
-              );
-            })}
-            {subject === "SVT" && (classe === "6e" || classe === "5e") && (() => {
-              // SVT 6e/5e UNIQUEMENT (demande explicite utilisateur) : type de
-              // Partie I choisi par l'enseignant. "Paragraphe" désactivé si la
-              // 1ère activité cochée (convention : notions[0] -> Partie I,
-              // cf. picksToNotions/selectedPicksByPart["Notions"]) a un SA < 2.
-              const _firstPick = (selectedPicksByPart["Notions"] || [])[0];
-              const _sa1 = _firstPick ? PCT_SA_NUMBER[classe]?.[_firstPick.sa] ?? SVT_SA_NUMBER[classe]?.[_firstPick.sa] : undefined;
-              const _paragrapheOk = _sa1 !== undefined && _sa1 >= 2;
-              const _options: { id: string; label: string }[] = [
-                { id: "partie1_association", label: "Association" },
-                { id: "partie1_lacunaire", label: "Test lacunaire" },
-                { id: "partie1_paragraphe", label: "Paragraphe" },
-              ];
-              return (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">
-                    Type de Partie I
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {_options.map((opt) => {
-                      const disabled = opt.id === "partie1_paragraphe" && !_paragrapheOk;
-                      const isSelected = (partie1Choice ?? "partie1_association") === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => setPartie1Choice(opt.id)}
-                          title={disabled ? "Disponible à partir de la SA2 de la 1ère activité choisie" : undefined}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                            isSelected
-                              ? "bg-indigo-600 text-white border-indigo-600"
-                              : disabled
-                              ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+              ) : usesPoolDetail ? (
+                notions.length === 0
+                  ? <p className="esp-hint">Le programme officiel {subject} n’est pas encore intégré pour cette classe.</p>
+                  : renderDetailPicker("__pool__", notions, PCT_SA_DETAILS)
+              ) : (<>
+                {notions.length === 0 && <p className="esp-hint">Le programme officiel {subject} n’est pas encore intégré pour cette classe.</p>}
+                <div className="esp-sa-chips">
+                  {notions.map((n) => {
+                    const on = selectedNotions.includes(n);
+                    return <button key={n} type="button" className={cn("esp-sa", on && "has-picks is-open")} aria-pressed={on} disabled={!on && selectedNotions.length >= MAX_NOTIONS} onClick={() => toggleNotion(n)}>{n}</button>;
+                  })}
                 </div>
-              );
-            })()}
-          </div>
-        ) : usesPoolDetail ? (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-            Notions au programme
-            <span className="text-xs text-slate-400 font-normal">
-              ({MAX_NOTIONS} activités obligatoires)
-            </span>
-          </label>
-          {notions.length === 0 ? (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              Le programme officiel {subject} n&apos;est pas encore intégré pour cette classe :
-              tape toi-même jusqu&apos;à {MAX_NOTIONS} notions à évaluer.
-            </p>
-          ) : (
-            renderDetailPicker("__pool__", notions, PCT_SA_DETAILS)
-          )}
-        </div>
-        ) : (
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-            Notions au programme
-            <span className="text-xs text-slate-400 font-normal">
-              {mode === "exercice" ? "(1 ou 2)" : `(${MAX_NOTIONS} obligatoires)`}
-            </span>
-          </label>
-          {notions.length === 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              Le programme officiel {subject} n&apos;est pas encore intégré pour cette classe :
-              tape toi-même jusqu&apos;à {MAX_NOTIONS} notions à évaluer.
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
-            {notions.map((n) => {
-              const isSelected = selectedNotions.includes(n);
-              const isDisabled = !isSelected && selectedNotions.length >= MAX_NOTIONS;
-              return (
-                <button
-                  key={n}
-                  onClick={() => toggleNotion(n)}
-                  disabled={isDisabled}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                    isSelected
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : isDisabled
-                      ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                  )}
-                >
-                  {n}
-                </button>
-              );
-            })}
-          </div>
-          {selectedNotions.length > 0 && (
-            <p className="text-xs text-indigo-600 font-medium">
-              {selectedNotions.length}/{MAX_NOTIONS} notion{selectedNotions.length > 1 ? "s" : ""} sélectionnée{selectedNotions.length > 1 ? "s" : ""}
-              {selectedNotions.length >= MAX_NOTIONS && " (maximum atteint)"}
-            </p>
-          )}
-        </div>
-        )}
+                {selectedNotions.length > 0 && <p className={cn("esp-sa-count", selectedNotions.length >= MAX_NOTIONS && "is-ok")}>{selectedNotions.length}/{MAX_NOTIONS} notion{selectedNotions.length > 1 ? "s" : ""} sélectionnée{selectedNotions.length > 1 ? "s" : ""}</p>}
+              </>)}
 
-        {/* Figure obligatoire — proposée uniquement pour une notion de géométrie */}
-        {showFigureOption && (
-          <label className="flex items-start gap-3 px-4 py-3 rounded-xl border border-indigo-100 bg-indigo-50/60 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={figureRequise}
-              onChange={(e) => setFigureRequise(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            <span className="text-sm text-slate-700">
-              {isSvt
-                ? "Aimeriez-vous avoir un schéma ou un graphique sur l'épreuve pour une bonne illustration ?"
-                : "Aimeriez-vous avoir une figure géométrique sur l'épreuve pour une bonne illustration ?"}
-              <span className="block text-xs text-slate-400 mt-0.5">
-                {isSvt
-                  ? "Ajoute un schéma annoté, une courbe, un histogramme ou un échiquier de croisement à analyser dans l'énoncé."
-                  : "Illustre le(s) problème(s) de géométrie dans l'énoncé et son corrigé."}
-              </span>
-            </span>
-          </label>
-        )}
+              {/* Figure — proposée uniquement pour une notion de géométrie (ou un schéma en SVT) */}
+              {showFigureOption && (
+                <label className="esp-toggle">
+                  <input type="checkbox" checked={figureRequise} onChange={(e) => setFigureRequise(e.target.checked)} /><span aria-hidden="true" />
+                  {isSvt ? "Ajouter un schéma ou un graphique à analyser" : isPct ? "Ajouter un schéma ou un circuit à l’énoncé" : "Ajouter une figure géométrique à l’énoncé"}
+                </label>
+              )}
 
-        {/* Partie Chimie optionnelle (PCT, 3e/4e/2nde C/D uniquement) */}
-        {showOptionalChimie && (
-          <div className="space-y-2 border border-amber-200 rounded-xl p-4 bg-amber-50/40">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeChimie}
-                onChange={(e) => {
-                  setIncludeChimie(e.target.checked);
-                  if (!e.target.checked) {
-                    setSelectedPicksByPart((prev) => ({ ...prev, "__chimie__": [] }));
-                    setExpandedSAByPart((prev) => ({ ...prev, "__chimie__": null }));
-                  }
-                }}
-                className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-              />
-              Ajouter une partie Chimie (optionnelle)
-            </label>
-            {includeChimie && (
-              <>
-                <p className="text-xs text-slate-500">
-                  Choisis 2 ou 3 activités de Chimie (dans les SA de ton choix) - l&apos;épreuve
-                  comportera alors une Partie Physique et une Partie Chimie séparées, comme en 1ère/Tle.
-                </p>
-                {renderDetailPicker("__chimie__", PCT_NOTIONS_CHIMIE[classe] || [], PCT_SA_DETAILS)}
-                {(selectedPicksByPart["__chimie__"] || []).length > 0
-                  && (selectedPicksByPart["__chimie__"] || []).length < 2 && (
-                  <p className="text-xs text-slate-400">(2 activités minimum)</p>
-                )}
-              </>
-            )}
+            </fieldset>
+          </>)}
+
+          <div className="esp-gen-submit">
+            <p className="esp-hint">{!mode ? "Choisissez le type de génération." : !subject ? "Choisissez la matière." : mode === "exercice" && !exerciceType ? "Précisez la nature de l'exercice." : `${mode === "epreuve" ? "Épreuve complète" : exerciceTypeLabel} de ${subject}, classe de ${classe}${mode === "epreuve" ? `, ${formatDuree(duration)}` : ""}.`}</p>
+            <Button type="submit" className="esp-primary" disabled={!ready}><Sparkles /> {mode === "exercice" ? "Générer l’exercice" : "Générer l’épreuve"}</Button>
           </div>
-        )}
+        </form>
 
-        {/* Submit */}
-        <button
-          onClick={() => {
-            if (parts) {
-              // Mode Exercice (Mathématiques, picker à 3 niveaux) : toujours
-              // 1 ou 2 activités, quelle que soit la matière -- jamais la
-              // règle épreuve de MIN_NOTIONS_BY_SUBJECT (ex. SVT 2-ou-3).
-              const minForSubject = mode === "exercice"
-                ? 1
-                : subject ? (MIN_NOTIONS_BY_SUBJECT[subject] ?? MAX_NOTIONS) : MAX_NOTIONS;
-              const missing = parts.filter((p) => {
-                const n = (selectedPicksByPart[p.label] || []).length;
-                return n < minForSubject || n > MAX_NOTIONS;
-              });
-              if (missing.length > 0) {
-                const countTxt = minForSubject === MAX_NOTIONS
-                  ? `exactement ${MAX_NOTIONS} activités`
-                  : `entre ${minForSubject} et ${MAX_NOTIONS} activités`;
-                toast.error(`Sélectionne ${countTxt} (dans les SA de ton choix) pour la partie ${missing[0].label}`);
-                return;
-              }
-            } else if (usesPoolDetail) {
-              if ((selectedPicksByPart["__pool__"] || []).length !== MAX_NOTIONS) {
-                toast.error(`Sélectionne exactement ${MAX_NOTIONS} activités (dans les SA de ton choix) avant de générer l'épreuve`);
-                return;
-              }
-            } else if (mode === "exercice") {
-              if (selectedNotions.length < 1 || selectedNotions.length > 2) {
-                toast.error("Sélectionne 1 ou 2 notions pour générer un exercice");
-                return;
-              }
-            } else if (selectedNotions.length !== MAX_NOTIONS) {
-              toast.error(`Sélectionne exactement ${MAX_NOTIONS} notions au programme avant de générer l'épreuve`);
-              return;
-            }
-            if (showOptionalChimie && includeChimie && (selectedPicksByPart["__chimie__"] || []).length < 2) {
-              toast.error("Sélectionne au moins 2 activités de Chimie (ou décoche la partie Chimie)");
-              return;
-            }
-            setShowEngineModal(true);
-          }}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
-        >
-          <Sparkles className="w-4 h-4" />
-          {mode === "exercice" ? "Générer l'exercice" : "Générer l'épreuve"}
-          <ArrowRight className="w-4 h-4 ml-1" />
-        </button>
-        </>
-        )}
       </div>
 
-      {/* Modal de choix du moteur (Titan 1 / Titan 2) — s'ouvre au clic sur Générer */}
-      {showEngineModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowEngineModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <h3 className="text-lg font-bold text-slate-900">Choisis ton moteur de génération</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                {availableMoteurs.length > 1
-                  ? "Deux moteurs, deux compromis entre vitesse et qualité."
-                  : "Titan 2 uniquement pour PCT pour le moment."}
-              </p>
-            </div>
-
-            <div className={cn("grid grid-cols-1 gap-3", availableMoteurs.length > 1 && "sm:grid-cols-2")}>
-              {availableMoteurs.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setEngine(m.id)}
-                  className={cn(
-                    "text-left rounded-xl border p-4 transition-all flex flex-col relative",
-                    engine === m.id
-                      ? "border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600"
-                      : "border-slate-200 hover:border-indigo-300"
+      {/* Choix du moteur (Titan 1 / Titan 2) — s'ouvre au clic sur Générer */}
+      <Dialog open={showEngineModal} onOpenChange={setShowEngineModal}>
+        <DialogContent className="esp-dialog esp-dialog-wide">
+          <DialogHeader>
+            <DialogTitle>Choisissez votre moteur de génération</DialogTitle>
+            <DialogDescription>Deux moteurs, deux compromis entre vitesse et qualité.</DialogDescription>
+          </DialogHeader>
+          <div className={cn("esp-choice-row", availableMoteurs.length > 1 ? "two" : "one")}>
+            {availableMoteurs.map((m) => (
+              <Choice key={m.id} selected={engine === m.id} disabled={!m.disponible} onClick={() => m.disponible && setEngine(m.id)}>
+                <span>
+                  <strong>{m.nom} <em className="esp-engine-time">{m.duree}</em></strong>
+                  {m.disponible ? (
+                    <>
+                      <small>{m.desc}</small>
+                      {m.detail && <small>{m.detail}</small>}
+                      {m.avert && <small className="esp-engine-warn">Génération plus lente, patientez jusqu’à la fin.</small>}
+                    </>
+                  ) : (
+                    <small className="esp-engine-warn">Non disponible pour le moment</small>
                   )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                          engine === m.id ? "border-indigo-600" : "border-slate-300"
-                        )}
-                      >
-                        {engine === m.id && (
-                          <span className="w-2 h-2 rounded-full bg-indigo-600" />
-                        )}
-                      </span>
-                      <span className="font-semibold text-slate-900">{m.nom}</span>
-                    </span>
-                    <span className="text-xs font-medium text-slate-500 whitespace-nowrap">{m.duree}</span>
-                  </div>
-                  <div className="text-sm text-slate-600 mt-0.5 ml-6">{m.desc}</div>
-                  {m.detail && (
-                    <div className="text-xs text-slate-400 mt-1 ml-6">{m.detail}</div>
-                  )}
-                  {m.avert && (
-                    <div className="mt-2 text-xs font-medium text-amber-600 ml-6">
-                      ⚠ Génération plus lente, patiente jusqu'à la fin.
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setShowEngineModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-all"
-              >
-                Annuler
-              </button>
-              <button
-                disabled={!engine}
-                onClick={() => {
-                  if (!engine) return;
-                  setShowEngineModal(false);
-                  handleSubmit(engine);
-                }}
-                className={cn(
-                  "flex-1 py-2.5 rounded-xl font-semibold transition-all",
-                  engine
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                )}
-              >
-                Lancer la génération
-              </button>
-            </div>
+                </span>
+              </Choice>
+            ))}
           </div>
-        </div>
-      )}
+          <div className="esp-dialog-actions">
+            <Button variant="framed" onClick={() => setShowEngineModal(false)}>Annuler</Button>
+            <Button className="esp-primary" disabled={!engine} onClick={() => { if (!engine) return; setShowEngineModal(false); handleSubmit(engine); }}>
+              <Sparkles /> Lancer la génération
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Mode Itératif — Admin seulement */}
+      {/* Mode itératif — administrateurs seulement */}
       {isAdmin && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h2 className="font-semibold text-amber-900">Mode itératif</h2>
-                <span className="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">Admin</span>
-              </div>
-              <p className="text-sm text-amber-700 mb-4">
-                Interface interactive étape par étape avec validation manuelle de chaque exercice.
-              </p>
-              <a
-                href="/atelier/"
-                className="inline-flex items-center gap-2 bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-700 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Ouvrir l&apos;atelier interactif
-              </a>
-            </div>
-          </div>
-        </div>
+        <section className="esp-panel esp-admin">
+          <div><span className="esp-eyebrow">Administrateur</span><h2>Mode itératif</h2><p>Interface étape par étape avec validation manuelle de chaque exercice.</p></div>
+          <Button variant="framed" asChild><a href={`/dashboard/generate/interactive${classe ? `?classe=${encodeURIComponent(classe)}` : ""}`}><ExternalLink /> Ouvrir l’atelier interactif</a></Button>
+        </section>
       )}
     </div>
   );

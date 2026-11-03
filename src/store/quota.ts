@@ -8,6 +8,9 @@ export interface QuotaState {
   exams_used: number;
   exams_limit: number;
   exams_remaining: number;
+  pct_exams_used: number;
+  pct_exams_limit: number;
+  pct_exams_remaining: number;
   corrections_used: number;
   corrections_limit: number;
   corrections_remaining: number;
@@ -18,8 +21,8 @@ export interface QuotaState {
 interface QuotaStore extends QuotaState {
   fetchQuota: () => Promise<void>;
   showPaywall: boolean;
-  paywallReason: "exam" | "correction" | null;
-  openPaywall: (reason: "exam" | "correction") => void;
+  paywallReason: "exam" | "correction" | "recharge" | "pct" | null;
+  openPaywall: (reason: "exam" | "correction" | "recharge" | "pct") => void;
   closePaywall: () => void;
 }
 
@@ -30,6 +33,9 @@ export const useQuotaStore = create<QuotaStore>((set) => ({
   exams_used: 0,
   exams_limit: 10,
   exams_remaining: 10,
+  pct_exams_used: 0,
+  pct_exams_limit: 5,
+  pct_exams_remaining: 5,
   corrections_used: 0,
   corrections_limit: 10,
   corrections_remaining: 10,
