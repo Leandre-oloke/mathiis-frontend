@@ -201,7 +201,7 @@ function InteractivePageInner() {
     return (
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             onClick={() => router.push("/dashboard/generate")}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
@@ -209,7 +209,7 @@ function InteractivePageInner() {
             <ArrowLeft className="w-4 h-4" />
             Retour
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">
               <Crown className="w-3 h-3" />
               Premium · Interactif
@@ -272,13 +272,13 @@ function InteractivePageInner() {
             />
 
             {/* Instruction de régénération */}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 disabled={busy}
                 placeholder='Ex : "plus court", "changer les valeurs", "niveau plus facile"'
-                className="flex-1 px-3 py-2 border-[1.5px] border-foreground rounded-lg text-sm focus:outline-none focus:shadow-[var(--shadow-ink)] disabled:opacity-50"
+                className="flex-1 min-w-0 px-3 py-2 border-[1.5px] border-foreground rounded-lg text-sm focus:outline-none focus:shadow-[var(--shadow-ink)] disabled:opacity-50"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && instruction.trim() && !busy) regenerate();
                 }}
@@ -286,7 +286,7 @@ function InteractivePageInner() {
               <button
                 onClick={regenerate}
                 disabled={busy}
-                className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 bg-white text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-all"
+                className="flex items-center justify-center gap-1.5 px-4 py-2 border border-slate-200 bg-white text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-all"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Régénérer
