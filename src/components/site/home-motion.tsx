@@ -24,10 +24,10 @@ export function RotatingWord({ words, interval = 2400 }: { words: readonly strin
 }
 
 /** A line of text riding a wave, drifting forever. Text is repeated so the loop is seamless. */
-export function CurvedMarquee({ text }: { text: string }) {
+export function CurvedMarquee({ text, separator = '   ✳   ' }: { text: string; separator?: string }) {
   const id = useId().replace(/:/g, '');
   const animate = !useSyncExternalStore(subscribeMotion, reducedMotion, () => true);
-  const line = Array.from({ length: 6 }, () => text).join('   ✳   ');
+  const line = Array.from({ length: 6 }, () => text).join(separator);
   return <div className="curved-marquee" aria-hidden="true">
     <svg viewBox="0 0 1440 96" preserveAspectRatio="xMidYMid slice">
       <path id={`wave-${id}`} d="M-20 62 C 220 26, 460 26, 700 58 S 1180 90, 1460 40" fill="none" />

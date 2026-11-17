@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HomePage } from "@/components/site/home-page";
+import { AccueilPage } from "@/components/site/accueil/accueil-page";
 import VisitTracker from "@/components/VisitTracker";
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export default function Page() {
   return (
     <>
       <VisitTracker />
-      <HomePage />
+      <AccueilPage />
     </>
   );
 }

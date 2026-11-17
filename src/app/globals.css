@@ -3,9 +3,10 @@
 @import "../styles/espace.css";
 @import "../styles/motion.css";
 @import "../styles/site.css";
+@import "../styles/accueil.css";
 
 /*
- * Mathiis — identité noir et blanc reprise du template de présentation
+ * Mathiis : identité noir et blanc reprise du template de présentation
  * (src/styles/*.css) pour la page d'accueil, qui n'utilise que les tokens
  * --foreground/--background/--accent (jamais les couleurs Tailwind brutes
  * ci-dessous). Les autres pages gardent leurs couleurs Tailwind d'origine
